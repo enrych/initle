@@ -14,18 +14,31 @@ class GameService {
     return room;
   }
 
-  getRoom(id: string): GameRoom | undefined {
+  getRoom(id: string) {
     return this.rooms.get(id);
   }
 
   async initQuestion(roomId: string) {
     const room = this.rooms.get(roomId);
-    if (!room) return;
-    const question = await generateQuestion();
-    if (question) {
-      room.currentQuestion = question;
-    }
-    return question;
+    if (!room) return null;
+
+    const q = await generateQuestion();
+    if (!q) return null;
+
+    room.currentQuestion = {
+      ...q,
+      startTime: Date.now(),
+    };
+
+    return room.currentQuestion;
+  }
+
+  calculateScore(startTime: number): number {
+    const elapsed = (Date.now() - startTime) / 1000;
+    const base = 1000;
+    const penalty = 50;
+    const raw = base - elapsed * penalty;
+    return Math.max(100, Math.round(raw));
   }
 }
 

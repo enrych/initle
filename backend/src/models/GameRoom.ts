@@ -1,25 +1,36 @@
 import type { Player } from "./Player.js";
+import { Leaderboard } from "./Leaderboard.js";
 
-export type Question = { id: string; initials: string; fullTitle: string };
+export type Question = {
+  id: string;
+  initials: string;
+  fullTitle: string;
+  startTime: number;
+};
 
 export class GameRoom {
   id: string;
-  players: Map<string, Player> = new Map();
+  leaderboard: Leaderboard;
   currentQuestion?: Question;
 
   constructor(id: string) {
     this.id = id;
+    this.leaderboard = new Leaderboard();
   }
 
   addPlayer(player: Player) {
-    this.players.set(player.id, player);
+    this.leaderboard.addPlayer(player);
   }
 
   removePlayer(playerId: string) {
-    this.players.delete(playerId);
+    this.leaderboard.removePlayer(playerId);
   }
 
   getPlayers(): Player[] {
-    return Array.from(this.players.values());
+    return this.leaderboard.getPlayers();
+  }
+
+  getLeaderboard(): Player[] {
+    return this.leaderboard.getSortedLeaderboard();
   }
 }

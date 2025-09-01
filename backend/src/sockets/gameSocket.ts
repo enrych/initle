@@ -10,7 +10,7 @@ export function registerGameSocket(io: Server) {
       room.addPlayer({ id: socket.id, name: playerName, score: 0 });
       socket.join(room.id);
 
-      io.to(room.id).emit("roomUpdate", room.getPlayers());
+      io.to(room.id).emit("roomUpdate", room.getLeaderboard());
 
       if (!room.currentQuestion) {
         const q = await gameService.initQuestion(room.id);
@@ -23,12 +23,12 @@ export function registerGameSocket(io: Server) {
     socket.on("submitGuess", async ({ guess }) => {
       const question = room.currentQuestion;
       if (!question) return;
-      const player = room.players.get(socket.id);
-      if (!player) return;
 
       if (guess.toLowerCase() === question.fullTitle.toLowerCase()) {
-        player.score += 1;
-        io.to(room.id).emit("roomUpdate", room.getPlayers());
+        const score = gameService.calculateScore(question.startTime);
+        room.leaderboard.updateScore(socket.id, score);
+
+        io.to(room.id).emit("roomUpdate", room.getLeaderboard());
 
         const next = await gameService.initQuestion(room.id);
         if (next)
@@ -38,7 +38,7 @@ export function registerGameSocket(io: Server) {
 
     socket.on("disconnect", () => {
       room.removePlayer(socket.id);
-      io.to(room.id).emit("roomUpdate", room.getPlayers());
+      io.to(room.id).emit("roomUpdate", room.getLeaderboard());
       console.log(`Player disconnected: ${socket.id}`);
     });
   });
