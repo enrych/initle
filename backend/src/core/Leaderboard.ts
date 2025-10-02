@@ -1,4 +1,4 @@
-import type { Player } from "src/old/models/Player.js";
+import type Player from "./Player.js";
 
 class Leaderboard {
   private scores: Map<Player["id"], number> = new Map();
