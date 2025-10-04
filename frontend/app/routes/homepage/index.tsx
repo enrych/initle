@@ -3,7 +3,7 @@ import { APP_NAME } from "constants/global.constants";
 import { HOMEPAGE_TEXT } from "./homepage.constants";
 import { Input } from "components/input";
 
-export default function Home() {
+const Homepage = () => {
   return (
     <div className="flex flex-col items-center justify-center gap-4 h-screen">
       <h1 className="text-4xl">{APP_NAME}</h1>
@@ -18,4 +18,6 @@ export default function Home() {
       </div>
     </div>
   );
-}
+};
+
+export default Homepage;
