@@ -1,10 +1,17 @@
+import UsernameGenerator from "src/utils/usernameGenerator.js";
+import UsernameValidator from "src/utils/usernameValidator.js";
+
 class Player {
   id: string;
-  name: string;
+  username?: string;
 
-  constructor(name: string) {
+  constructor(username?: string) {
+    username = UsernameValidator.isPresent(username)
+      ? username
+      : UsernameGenerator.generate();
+
     this.id = crypto.randomUUID();
-    this.name = name;
+    this.username = username!;
   }
 }
 
