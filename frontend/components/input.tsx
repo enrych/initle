@@ -1,7 +1,7 @@
 import { cva, type VariantProps } from "class-variance-authority";
 import cn from "utils/cn";
 
-const inputVariants = cva("", {
+const inputVariants = cva("py-1 px-2 border outline-none rounded-sm", {
   variants: {
     variant: {},
   },
