@@ -1,10 +1,20 @@
 import { Server, Socket } from "socket.io";
 import GameRoom from "./GameRoom.js";
 import Player from "./Player.js";
+import redisService from "src/clients/redis.js";
+
+type GameRoomRegistryEntry = GameRoom;
+type PlayerRegistryEntry = Partial<{
+  username: Player["username"];
+  gameRoomId: GameRoom["id"];
+}>;
 
 class Playground {
   private io: Server;
-  private rooms: Map<GameRoom["id"], GameRoom> = new Map();
+  private gameRoomRegistry: Map<GameRoom["id"], GameRoomRegistryEntry> =
+    new Map();
+  private playerRegistry: Map<Player["playerId"], PlayerRegistryEntry> =
+    new Map();
 
   constructor(io: Server) {
     this.io = io;
@@ -14,7 +24,7 @@ class Playground {
   }
 
   private init() {
-    const defaultRoom = this.createRoom();
+    const defaultRoom = this.createGameRoom();
   }
 
   private initSocketHandler() {
@@ -22,7 +32,7 @@ class Playground {
       console.log(`Player connected: ${socket.id}`);
 
       socket.on("join_room", ({ roomId, playerId }) => {
-        const room = this.getRoom(roomId);
+        const room = this.getGameRoom(roomId);
         if (!room) return socket.emit("error", "Room not found");
 
         socket.join(roomId);
@@ -38,35 +48,52 @@ class Playground {
     });
   }
 
-  createRoom() {
-    const room = new GameRoom();
-    this.rooms.set(room.id, room);
-    return room;
+  createGameRoom() {
+    const gameRoom = new GameRoom();
+    this.gameRoomRegistry.set(gameRoom.id, gameRoom);
+    return gameRoom;
   }
 
-  getRoom(roomId: GameRoom["id"]) {
-    return this.rooms.get(roomId);
+  getGameRoom(roomId: GameRoom["id"]) {
+    return this.gameRoomRegistry.get(roomId);
   }
 
-  joinRandomRoom(username: Player["username"]) {
-    const player = new Player(username!);
-    const room = this.findRoomToJoin();
-    room.addPlayer(player);
-
-    return {
-      roomId: room.id,
-      playerId: player.id,
-      playerUsername: player.username,
-    };
+  registerPlayer({ playerId, username }: Player) {
+    this.playerRegistry.set(playerId, { username });
+    console.log("Player has been registered: ", playerId);
   }
 
-  findRoomToJoin() {
-    let availableRoom = [...this.rooms.values()].find(
+  joinRandomGameRoom(playerId: Player["playerId"]) {
+    const existingPlayerEntry = this.playerRegistry.get(playerId) ?? {};
+
+    if (existingPlayerEntry.gameRoomId) {
+      const existingRoom = this.gameRoomRegistry.get(
+        existingPlayerEntry.gameRoomId,
+      );
+      if (existingRoom) {
+        return { roomId: existingRoom.id };
+      }
+    }
+
+    const gameRoom = this.findGameRoomToJoin();
+
+    gameRoom.addPlayer(playerId);
+
+    this.playerRegistry.set(playerId, {
+      ...existingPlayerEntry,
+      gameRoomId: gameRoom.id,
+    });
+
+    return { roomId: gameRoom.id };
+  }
+
+  findGameRoomToJoin() {
+    let availableRoom = [...this.gameRoomRegistry.values()].find(
       (room) => room.isPublic && room.hasSpace,
     );
 
     if (!availableRoom) {
-      availableRoom = this.createRoom();
+      availableRoom = this.createGameRoom();
     }
 
     return availableRoom;

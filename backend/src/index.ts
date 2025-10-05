@@ -3,7 +3,10 @@ import http from "http";
 import express from "express";
 import { Server } from "socket.io";
 import Playground from "./core/Playground.js";
-import type Player from "./core/Player.js";
+import Player from "./core/Player.js";
+import redisService from "./clients/redis.js";
+import UsernameGenerator from "./utils/usernameGenerator.js";
+import UsernameValidator from "./utils/usernameValidator.js";
 
 const PORT = process.env.PORT;
 
@@ -12,6 +15,7 @@ const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
 const playground = new Playground(io);
+await redisService.init();
 
 app.use(express.json());
 
@@ -19,15 +23,20 @@ app.get("/ping", (_, res) => res.send("pong"));
 app.get("/marco", (_, res) => res.send("polo"));
 
 app.post("/auth", (req, res) => {
-  res.json({
-    playerId: crypto.randomUUID(),
-  });
+  const { username: usernameInput }: Player = req.body;
+  const username = UsernameValidator.isPresent(usernameInput)
+    ? usernameInput
+    : UsernameGenerator.generate();
+  const player = new Player(username);
+  playground.registerPlayer(player);
+
+  res.json(player);
 });
 
 app.post("/play", (req, res) => {
-  const { username }: { username: Player["username"] } = req.body;
+  const { playerId: id }: Player = req.body;
 
-  res.json(playground.joinRandomRoom(username));
+  res.json(playground.joinRandomGameRoom(id));
 });
 
 server.listen(PORT, () => {
