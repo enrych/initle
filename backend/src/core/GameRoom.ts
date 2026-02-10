@@ -49,6 +49,10 @@ class GameRoom {
     this.leaderboard.removePlayer(removedPlayerId);
   }
 
+  getPlayers(): Player["playerId"][] {
+    return Array.from(this.players);
+  }
+
   get hasSpace() {
     return this.players.size < this.roomSize;
   }

@@ -31,19 +31,60 @@ class Playground {
     this.io.on("connection", (socket) => {
       console.log(`Player connected: ${socket.id}`);
 
-      socket.on("join_room", ({ roomId, playerId }) => {
+      socket.on("join_room", ({ playerId }) => {
+        const playerEntry = this.playerRegistry.get(playerId);
+        if (!playerEntry) {
+          return socket.emit("error", "Unknown player");
+        }
+
+        const roomId = playerEntry.gameRoomId;
+        if (!roomId) {
+          return socket.emit("error", "Player not assigned to a room yet");
+        }
+
         const room = this.getGameRoom(roomId);
         if (!room) return socket.emit("error", "Room not found");
 
+        room.addPlayer(playerId);
         socket.join(roomId);
+        (socket as any).playerId = playerId;
 
         console.log(`Player ${playerId} joined room ${roomId}`);
 
-        this.io.to(roomId).emit("player-joined", { playerId });
+        this.io
+          .to(roomId)
+          .emit("player-joined", { playerId, username: playerEntry.username });
+
+        socket.emit("room-state", {
+          roomId,
+          players: this.getPlayersInRoom(roomId),
+        });
       });
 
       socket.on("disconnect", () => {
-        console.log(`Player disconnected: ${socket.id}`);
+        const playerId = (socket as any).playerId;
+        if (!playerId) {
+          console.log(`Socket disconnected: ${socket.id} (no playerId)`);
+          return;
+        }
+
+        const playerEntry = this.playerRegistry.get(playerId);
+        if (!playerEntry) return;
+
+        const roomId = playerEntry.gameRoomId;
+        if (roomId) {
+          const room = this.getGameRoom(roomId);
+          if (room) {
+            room.removePlayer(playerId);
+
+            this.io.to(roomId).emit("player-left", { playerId });
+          }
+        }
+
+        // Optionally remove player from registry if you want ephemeral players
+        // this.playerRegistry.delete(playerId);
+
+        console.log(`Player disconnected: ${playerId} (socket ${socket.id})`);
       });
     });
   }
@@ -56,6 +97,15 @@ class Playground {
 
   getGameRoom(roomId: GameRoom["id"]) {
     return this.gameRoomRegistry.get(roomId);
+  }
+
+  getPlayersInRoom(roomId: string) {
+    const room = this.getGameRoom(roomId);
+    if (!room) return [];
+    return room.getPlayers().map((playerId) => {
+      const entry = this.playerRegistry.get(playerId);
+      return { playerId, username: entry?.username };
+    });
   }
 
   registerPlayer({ playerId, username }: Player) {
