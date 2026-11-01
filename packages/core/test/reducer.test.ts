@@ -75,11 +75,33 @@ describe("lobby rules", () => {
     sim.act({ type: "join", playerId: "p1", token: "tok-p1-xxxx", name: "Ana", avatar: "🦊" });
     expect(sim.act({ type: "start", playerId: "p1", items, seed: 1 }).error?.code).toBe("NOT_ENOUGH_PLAYERS");
   });
-  it("transfers host when the host leaves", () => {
+  it("transfers host when the host leaves, and gives it back if they return to the lobby", () => {
     const sim = lobby();
     sim.act({ type: "leave", playerId: "p1" });
     expect(sim.s.hostId).toBe("p2");
-    expect(sim.s.players.p1).toBeUndefined();
+    expect(sim.s.players.p1!.connected).toBe(false);
+    sim.act({ type: "join", playerId: "p1", token: "tok-p1-xxxx", name: "Ana", avatar: "🦊" });
+    expect(sim.s.hostId).toBe("p1");
+  });
+  it("away players are dropped when the game starts", () => {
+    const sim = lobby();
+    sim.act({ type: "join", playerId: "p4", token: "tok-p4-xxxx", name: "Dee", avatar: "🦊" });
+    sim.act({ type: "leave", playerId: "p4" });
+    sim.act({ type: "settings", playerId: "p1", set: false });
+    sim.act({ type: "start", playerId: "p1", items, seed: 1 });
+    expect(sim.s.order).toEqual(["p1", "p2", "p3"]);
+  });
+  it("kicked players can't rejoin with the same token", () => {
+    const sim = lobby();
+    sim.act({ type: "kick", playerId: "p1", target: "p3" });
+    expect(sim.s.players.p3).toBeUndefined();
+    const r = sim.act({ type: "join", playerId: "p3b", token: "tok-p3-xxxx", name: "Cy", avatar: "🦊" });
+    expect(r.error?.code).toBe("BANNED");
+  });
+  it("rate limits reactions", () => {
+    const sim = lobby();
+    expect(sim.act({ type: "react", playerId: "p2", emoji: "🔥" }).events).toHaveLength(1);
+    expect(sim.act({ type: "react", playerId: "p2", emoji: "🔥" }).events).toHaveLength(0);
   });
 });
 
@@ -145,11 +167,26 @@ describe("fake rounds", () => {
     return sim;
   }
 
-  it("validates fakes against the initials and rejects the real answer", () => {
+  it("validates fakes against the initials; the real answer is accepted silently but never becomes an option", () => {
     const sim = toWrite();
     const real = sim.s.round!.item.text;
     expect(sim.act({ type: "fake", playerId: "p1", text: "totally wrong length here now" }).error?.code).toBe("BAD_TEXT");
-    expect(sim.act({ type: "fake", playerId: "p1", text: real }).error?.message).toMatch(/real answer/);
+    expect(sim.act({ type: "fake", playerId: "p1", text: real }).error).toBeUndefined();
+    const [a, b, c] = real.split(" ").map((w) => w[0]!.toLowerCase());
+    sim.act({ type: "fake", playerId: "p2", text: `${a}xx ${b}yy ${c}zz` });
+    sim.act({ type: "fake", playerId: "p3", text: `${a}qq ${b}rr ${c}ss` });
+    expect(sim.s.phase).toBe("vote");
+    expect(sim.s.round!.options!.filter((o) => o.real)).toHaveLength(1);
+    expect(sim.s.round!.options!).toHaveLength(3);
+  });
+
+  it("formats every option identically so the real one doesn't stand out", () => {
+    const sim = toWrite();
+    const [a, b, c] = sim.s.round!.item.text.split(" ").map((w) => w[0]!.toLowerCase());
+    sim.act({ type: "fake", playerId: "p1", text: `${a}xx ${b}YY ${c}zz!!` });
+    sim.act({ type: "fake", playerId: "p2", text: `${a}aa ${b}bb ${c}cc` });
+    sim.act({ type: "fake", playerId: "p3", text: `${a}dd ${b}ee ${c}ff` });
+    for (const o of sim.s.round!.options!) expect(o.text).toMatch(/^([A-Z0-9][a-z0-9']* ?)+$/);
   });
 
   it("merges identical fakes, scores fooling and finding", () => {
@@ -240,6 +277,28 @@ describe("prep and set rounds", () => {
     sim.act({ type: "guess", playerId: others[0]!, text: r.item.text });
     while (sim.s.phase === "play") sim.next();
     expect(sim.s.players[author]!.score - authorBefore).toBe(100); // 1 of 2 solved
+  });
+
+  it("author bonus ignores kicked solvers", () => {
+    const sim = new Sim();
+    sim.act({ type: "create", code: "BCDF" });
+    for (const id of ["p1", "p2", "p3", "p4"]) sim.act({ type: "join", playerId: id, token: `tok-${id}-xxxx`, name: id, avatar: "🦊" });
+    sim.act({ type: "settings", playerId: "p1", fake: false, set: true, rounds: 5 });
+    sim.act({ type: "start", playerId: "p1", items, seed: 9 });
+    for (const id of ["p1", "p2", "p3", "p4"]) {
+      sim.act({ type: "prep", playerId: id, slot: 0, text: `Phrase number one ${id}` });
+      sim.act({ type: "prep", playerId: id, slot: 1, text: `Phrase number two ${id}` });
+    }
+    while (!(sim.s.round!.type === "set" && sim.s.phase === "play")) sim.next();
+    const author = sim.s.round!.author!;
+    const [s1, s2] = sim.s.order.filter((id) => id !== author && id !== "p1");
+    sim.act({ type: "guess", playerId: s1!, text: sim.s.round!.item.text });
+    sim.act({ type: "guess", playerId: s2!, text: sim.s.round!.item.text });
+    const before = sim.s.players[author]!.score;
+    sim.act({ type: "kick", playerId: "p1", target: s2! });
+    while (sim.s.phase === "play") sim.next();
+    // 1 remaining solver out of 2 remaining non-authors -> sweet spot
+    expect(sim.s.players[author]!.score - before).toBe(100);
   });
 
   it("author gets nothing if everyone solves", () => {

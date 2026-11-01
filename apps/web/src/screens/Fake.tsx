@@ -10,7 +10,14 @@ import { sfx } from "../lib/sound";
 import { SectionTitle } from "../pages/RoomPage";
 
 function firstChar(word: string): string {
+  if (word === "&") return "&";
   return word.replace(/[^\p{L}\p{N}]/gu, "")[0]?.toUpperCase() ?? "";
+}
+
+/** Mirrors the server rule: "&" on the board is matched by "&" or "and". */
+function matches(required: string, word: string): boolean {
+  if (required === "&") return word === "&" || word.toLowerCase() === "and";
+  return firstChar(word) === required;
 }
 
 export function WriteScreen() {
@@ -20,7 +27,7 @@ export function WriteScreen() {
   const [text, setText] = useState(r.myFake ?? "");
   const [editing, setEditing] = useState(!r.myFake);
   const words = text.trim().split(/\s+/).filter((w) => firstChar(w));
-  const fits = words.length === initials.length && words.every((w, i) => firstChar(w) === initials[i]);
+  const fits = words.length === initials.length && words.every((w, i) => matches(initials[i]!, w));
 
   useGameEvent((e) => {
     if (e.type === "accepted" && e.what === "fake") {
@@ -64,7 +71,7 @@ export function WriteScreen() {
           />
           <div className="flex flex-wrap justify-center gap-1" aria-label="Letter check">
             {initials.map((c, i) => {
-              const typed = words[i] ? firstChar(words[i]!) : "";
+              const typed = words[i] ? (matches(c, words[i]!) ? c : firstChar(words[i]!) || "?") : "";
               return (
                 <span
                   key={i}

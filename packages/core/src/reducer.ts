@@ -1,7 +1,7 @@
 import { CONFIG, PROMPTS } from "./config";
 import { checkName, checkPhrase, cleanText, containsBlocked } from "./moderation";
 import { hashString, mulberry32, shuffle } from "./random";
-import { evaluateGuess, fitsInitials, phraseKey } from "./text";
+import { evaluateGuess, fitsInitials, phraseKey, stripDiacritics } from "./text";
 import type {
   Action,
   FakeOption,
@@ -33,6 +33,8 @@ export function initialRoom(code = ""): Room {
     seed: 1,
     prevScores: {},
     gamesPlayed: 0,
+    banned: [],
+    ownerId: null,
   };
 }
 
@@ -158,19 +160,31 @@ function startRound(s: Room, now: number) {
   s.deadline = now + CONFIG.INTRO_MS;
 }
 
+/** Same casing and punctuation for every Fake option, so the real one can't be spotted by its formatting. */
+export function optionDisplay(text: string): string {
+  return stripDiacritics(text)
+    .replace(/[^A-Za-z0-9' ]+/g, " ")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w[0]!.toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+}
+
 function toVote(s: Room, now: number) {
   const r = s.round!;
   const merged = new Map<string, FakeOption>();
   for (const id of s.order) {
     const text = r.fakes[id];
     if (!text) continue;
+    // A "fake" that is actually the answer is dropped silently (no oracle for the real answer).
+    if (evaluateGuess(r.item.text, r.item.aliases, text, []).solved) continue;
     const key = phraseKey(text);
     const existing = merged.get(key);
     if (existing) existing.authors.push(id);
-    else merged.set(key, { id: "", text, authors: [id], real: false, hidden: false });
+    else merged.set(key, { id: "", text: optionDisplay(text), authors: [id], real: false, hidden: false });
   }
   if (merged.size === 0) return toReveal(s, now);
-  const all = shuffle([...merged.values(), { id: "", text: r.item.text, authors: [], real: true, hidden: false }], mulberry32(s.seed + r.index * 7919));
+  const all = shuffle([...merged.values(), { id: "", text: optionDisplay(r.item.text), authors: [], real: true, hidden: false }], mulberry32(s.seed + r.index * 7919));
   r.options = all.map((o, i) => ({ ...o, id: `o${i}` }));
   s.phase = "vote";
   s.deadline = now + CONFIG.VOTE_MS;
@@ -189,7 +203,7 @@ function toReveal(s: Room, now: number) {
       awarded[id] = solve ? solve.points : (r.locked[id]?.length ?? 0) * CONFIG.LOCKED_WORD_POINTS * m;
     }
     if (r.type === "set" && r.author && s.players[r.author]) {
-      const solvers = Object.keys(r.solves).length;
+      const solvers = Object.keys(r.solves).filter((id) => s.players[id] && id !== r.author).length;
       const field = s.order.filter((id) => id !== r.author && (s.players[id]!.connected || r.solves[id])).length;
       if (solvers > 0 && solvers < field) {
         const pts = CONFIG.SET_AUTHOR_POINTS * solvers * m;
@@ -331,6 +345,7 @@ export function reduce(prev: Room, action: Action, now: number): ReduceResult {
 
     case "join": {
       if (!s.created) return fail(prev, action.playerId, "ROOM_NOT_FOUND", "That room doesn't exist.");
+      if (s.banned.includes(action.token)) return fail(prev, action.playerId, "BANNED", "The host removed you from this room.");
       const name = checkName(action.name);
       if (!name.ok) return fail(prev, action.playerId, "BAD_NAME", name.message);
       const existing = s.players[action.playerId];
@@ -351,11 +366,14 @@ export function reduce(prev: Room, action: Action, now: number): ReduceResult {
           joinedAt: now,
           guessTimes: [],
           prep: [],
+          lastReact: 0,
           stats: emptyStats(),
         };
         s.order.push(action.playerId);
+        s.ownerId ??= action.playerId;
       }
       if (s.phase === "prep") assignPrompts(s, action.playerId);
+      if (s.phase === "lobby" && action.playerId === s.ownerId) s.hostId = action.playerId;
       ensureHost(s);
       return done();
     }
@@ -363,8 +381,7 @@ export function reduce(prev: Room, action: Action, now: number): ReduceResult {
     case "leave": {
       const p = s.players[action.playerId];
       if (!p) return { state: prev, events };
-      if (s.phase === "lobby") removePlayer(s, action.playerId);
-      else p.connected = false;
+      p.connected = false;
       ensureHost(s);
       checkEarlyEnd(s, now);
       return done();
@@ -419,7 +436,7 @@ export function reduce(prev: Room, action: Action, now: number): ReduceResult {
       const check = checkPhrase(action.text, s.settings.family);
       if (!check.ok) return fail(prev, p.id, "BAD_TEXT", check.message);
       slot.text = check.text;
-      events.push({ type: "accepted", to: p.id, what: "prep" });
+      events.push({ type: "accepted", to: p.id, what: "prep", slot: action.slot });
       checkEarlyEnd(s, now);
       return done();
     }
@@ -457,10 +474,11 @@ export function reduce(prev: Room, action: Action, now: number): ReduceResult {
       if (!p) return fail(prev, action.playerId, "UNKNOWN_PLAYER", "Join the room first.");
       const r = s.round;
       if (s.phase !== "write" || !r) return fail(prev, p.id, "BAD_PHASE", "Writing time is over.");
+      p.guessTimes = p.guessTimes.filter((t) => now - t < CONFIG.GUESS_WINDOW_MS);
+      if (p.guessTimes.length >= CONFIG.GUESS_LIMIT) return fail(prev, p.id, "RATE_LIMITED", "Slow down: 3 tries per 5 seconds.");
+      p.guessTimes.push(now);
       const text = cleanText(action.text).slice(0, CONFIG.GUESS_MAX);
       if (!fitsInitials(r.item.text, text)) return fail(prev, p.id, "BAD_TEXT", "Your fake must match the initials, one word per letter.");
-      if (evaluateGuess(r.item.text, r.item.aliases, text, []).solved)
-        return fail(prev, p.id, "BAD_TEXT", "That's the real answer! Write a convincing fake instead.");
       if (s.settings.family && containsBlocked(text)) return fail(prev, p.id, "BAD_TEXT", "Family mode is on. Try different words.");
       r.fakes[p.id] = text;
       events.push({ type: "accepted", to: p.id, what: "fake" });
@@ -484,8 +502,10 @@ export function reduce(prev: Room, action: Action, now: number): ReduceResult {
     }
 
     case "react": {
-      if (!s.players[action.playerId]) return { state: prev, events };
-      return { state: prev, events: [{ type: "reaction", playerId: action.playerId, emoji: action.emoji }] };
+      const p = s.players[action.playerId];
+      if (!p || (p.lastReact > 0 && now - p.lastReact < CONFIG.REACT_MIN_MS)) return { state: prev, events };
+      p.lastReact = now || 1;
+      return { state: s, events: [{ type: "reaction", playerId: action.playerId, emoji: action.emoji }] };
     }
 
     case "hide": {
@@ -518,10 +538,13 @@ export function reduce(prev: Room, action: Action, now: number): ReduceResult {
     case "kick": {
       if (s.hostId !== action.playerId) return fail(prev, action.playerId, "NOT_HOST", "Only the host can remove players.");
       if (action.target === action.playerId || !s.players[action.target]) return { state: prev, events };
+      s.banned.push(s.players[action.target]!.token);
       removePlayer(s, action.target);
       if (s.round) {
         delete s.round.fakes[action.target];
         delete s.round.votes[action.target];
+        delete s.round.solves[action.target];
+        delete s.round.locked[action.target];
       }
       ensureHost(s);
       events.push({ type: "kicked", playerId: action.target });

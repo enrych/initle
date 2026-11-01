@@ -38,6 +38,7 @@ export type Player = {
   /** Prep phrases for Set rounds (private to the author until played). */
   prep: PrepSlot[];
   /** Award counters for end-of-game titles. */
+  lastReact: number;
   stats: { solves: number; firstSolves: number; fooled: number; foundReal: number; setPoints: number; fastest: number | null };
 };
 
@@ -96,6 +97,10 @@ export type Room = {
   /** Scores before the last reveal, for scoreboard deltas. */
   prevScores: Record<string, number>;
   gamesPlayed: number;
+  /** Rejoin tokens of kicked players. */
+  banned: string[];
+  /** First player to join; gets host back if they return while in the lobby. */
+  ownerId: string | null;
 };
 
 export type Action =
@@ -129,7 +134,7 @@ export type GameEvent =
   | { type: "solve"; playerId: string; stage: number; first: boolean }
   | { type: "reaction"; playerId: string; emoji: string }
   | { type: "kicked"; playerId: string }
-  | { type: "accepted"; to: string; what: "prep" | "fake" | "vote" };
+  | { type: "accepted"; to: string; what: "prep" | "fake" | "vote"; slot?: number };
 
 export type ErrorCode =
   | "NOT_HOST"
@@ -143,7 +148,8 @@ export type ErrorCode =
   | "BAD_NAME"
   | "BAD_TEXT"
   | "NO_ITEMS"
-  | "UNKNOWN_PACK";
+  | "UNKNOWN_PACK"
+  | "BANNED";
 
 export type ReduceError = { to: string; code: ErrorCode; message: string };
 

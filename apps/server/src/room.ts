@@ -39,7 +39,8 @@ export class Room extends Server<Env> {
   async onStart() {
     const saved = await this.ctx.storage.get<{ room: RoomState; gameStartedAt: number }>(STORAGE_KEY);
     if (saved) {
-      this.state = saved.room;
+      // Merge with defaults so rooms saved by an older version gain new fields.
+      this.state = { ...initialRoom(this.name), ...saved.room };
       this.gameStartedAt = saved.gameStartedAt;
     } else {
       this.state = initialRoom(this.name);
@@ -88,6 +89,10 @@ export class Room extends Server<Env> {
 
     if (msg.type === "join") {
       const existing = this.state.order.find((id) => this.state.players[id]!.token === msg.token);
+      const current = conn.state?.role === "player" ? conn.state.playerId : null;
+      // A socket is one seat: it can re-join as itself, but never switch identities (no phantom players).
+      if (current && current !== existing)
+        return this.sendTo(conn, { type: "error", code: "BAD_MESSAGE", message: "Already joined as another player." });
       const playerId = existing ?? crypto.randomUUID().slice(0, 12);
       const avatar = (AVATARS as readonly string[]).includes(msg.avatar) ? msg.avatar : AVATARS[0];
       const ok = await this.apply({ type: "join", playerId, token: msg.token, name: msg.name, avatar }, conn);

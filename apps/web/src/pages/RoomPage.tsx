@@ -97,7 +97,7 @@ export function RoomPage() {
         </form>
       </Centered>
     );
-  return <ConnectedRoom code={code} />;
+  return <ConnectedRoom code={code} onBadName={() => setGate("name")} />;
 }
 
 function RoomMissing({ code }: { code: string }) {
@@ -113,18 +113,29 @@ function RoomMissing({ code }: { code: string }) {
   );
 }
 
-function ConnectedRoom({ code }: { code: string }) {
+function ConnectedRoom({ code, onBadName }: { code: string; onBadName: () => void }) {
   const conn = useRoomConnection(code, "player");
   const navigate = useNavigate();
+  const [fatal, setFatal] = useState<{ emoji: string; title: string } | null>(null);
+  const joined = !!conn.view?.me;
 
   useEffect(
     () =>
       conn.onError((e) => {
         if (e.code === "ROOM_NOT_FOUND") return;
+        if (!joined) {
+          // Join failures are terminal for this attempt: never leave the player on a spinner.
+          if (e.code === "BAD_NAME") {
+            toast(e.message, "bad");
+            return onBadName();
+          }
+          if (e.code === "ROOM_FULL") return setFatal({ emoji: "🈵", title: "This room is full" });
+          if (e.code === "BANNED") return setFatal({ emoji: "👋", title: "The host removed you from this room" });
+        }
         toast(e.message, "bad");
         if (e.code === "BAD_TEXT" || e.code === "RATE_LIMITED") sfx.miss();
       }),
-    [conn],
+    [conn, joined, onBadName],
   );
 
   useEffect(
@@ -136,6 +147,16 @@ function ConnectedRoom({ code }: { code: string }) {
   );
 
   if (conn.status === "not-found") return <RoomMissing code={code} />;
+  if (fatal)
+    return (
+      <Centered>
+        <div className="text-6xl">{fatal.emoji}</div>
+        <h1 className="font-display text-2xl font-bold">{fatal.title}</h1>
+        <Link to="/">
+          <Button>Back home</Button>
+        </Link>
+      </Centered>
+    );
   if (conn.status === "kicked")
     return (
       <Centered>

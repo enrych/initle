@@ -178,7 +178,15 @@ export function LobbyScreen() {
         )}
       </div>
 
-      <AddPackModal open={addPack} onClose={() => setAddPack(false)} onAdd={(id) => togglePack(id)} />
+      <AddPackModal
+        open={addPack}
+        onClose={() => setAddPack(false)}
+        onAdd={(id) => {
+          if (view.settings.packs.includes(id)) return;
+          if (view.settings.packs.length >= CONFIG.MAX_PACKS) return toast(`Up to ${CONFIG.MAX_PACKS} packs`, "bad");
+          send({ type: "settings", packs: [...view.settings.packs, id] });
+        }}
+      />
     </div>
   );
 }

@@ -16,7 +16,7 @@ function PromptCard({ index, prompt, saved }: { index: number; prompt: string; s
   const valid = words >= CONFIG.PHRASE_MIN_WORDS && words <= CONFIG.PHRASE_MAX_WORDS && text.length <= CONFIG.PHRASE_MAX;
 
   useGameEvent((e) => {
-    if (e.type === "accepted" && e.what === "prep") setEditing(false);
+    if (e.type === "accepted" && e.what === "prep" && e.slot === index) setEditing(false);
   });
 
   return (
