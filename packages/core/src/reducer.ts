@@ -167,10 +167,10 @@ function toVote(s: Room, now: number) {
     const key = phraseKey(text);
     const existing = merged.get(key);
     if (existing) existing.authors.push(id);
-    else merged.set(key, { id: "", text, authors: [id], real: false });
+    else merged.set(key, { id: "", text, authors: [id], real: false, hidden: false });
   }
   if (merged.size === 0) return toReveal(s, now);
-  const all = shuffle([...merged.values(), { id: "", text: r.item.text, authors: [], real: true }], mulberry32(s.seed + r.index * 7919));
+  const all = shuffle([...merged.values(), { id: "", text: r.item.text, authors: [], real: true, hidden: false }], mulberry32(s.seed + r.index * 7919));
   r.options = all.map((o, i) => ({ ...o, id: `o${i}` }));
   s.phase = "vote";
   s.deadline = now + CONFIG.VOTE_MS;
@@ -242,7 +242,7 @@ function checkEarlyEnd(s: Room, now: number) {
   if (s.phase === "play" && ids.every((id) => r.solves[id])) toReveal(s, now);
   else if (s.phase === "write" && connectedIds(s).every((id) => r.fakes[id])) toVote(s, now);
   else if (s.phase === "vote" && r.options) {
-    const voters = connectedIds(s).filter((id) => r.options!.some((o) => !o.authors.includes(id)));
+    const voters = connectedIds(s).filter((id) => r.options!.some((o) => !o.hidden && !o.authors.includes(id)));
     if (voters.length > 0 && voters.every((id) => r.votes[id])) toReveal(s, now);
   }
 }
@@ -475,6 +475,7 @@ export function reduce(prev: Room, action: Action, now: number): ReduceResult {
       if (s.phase !== "vote" || !r?.options) return fail(prev, p.id, "BAD_PHASE", "Voting is over.");
       const option = r.options.find((o) => o.id === action.option);
       if (!option) return fail(prev, p.id, "BAD_MESSAGE", "Unknown answer.");
+      if (option.hidden) return fail(prev, p.id, "BAD_MESSAGE", "That answer was hidden by the host.");
       if (option.authors.includes(p.id)) return fail(prev, p.id, "BAD_MESSAGE", "You can't vote for your own fake.");
       r.votes[p.id] = option.id;
       events.push({ type: "accepted", to: p.id, what: "vote" });
@@ -492,11 +493,14 @@ export function reduce(prev: Room, action: Action, now: number): ReduceResult {
       const r = s.round;
       if (!r) return { state: prev, events };
       if (s.phase === "vote" && r.options) {
-        const option = r.options.find((o) => o.id === action.target && !o.real);
+        // Hiding works on any answer, including the real one (which then just leaves the vote),
+        // so the host can't learn which answer is real by trying.
+        const option = r.options.find((o) => o.id === action.target && !o.hidden);
         if (!option) return { state: prev, events };
-        r.options = r.options.filter((o) => o !== option);
+        option.hidden = true;
         for (const [voter, choice] of Object.entries(r.votes)) if (choice === option.id) delete r.votes[voter];
-        checkEarlyEnd(s, now);
+        if (r.options.filter((o) => !o.hidden).length === 0) toReveal(s, now);
+        else checkEarlyEnd(s, now);
         return done();
       }
       return { state: prev, events };

@@ -126,7 +126,7 @@ export function toView(s: Room, me: string, now: number): View {
       myFake: r.fakes[me] ?? null,
       options:
         s.phase === "vote" && r.options
-          ? r.options.map((o) => ({ id: o.id, text: o.text, mine: o.authors.includes(me) }))
+          ? r.options.filter((o) => !o.hidden).map((o) => ({ id: o.id, text: o.text, mine: o.authors.includes(me) }))
           : null,
       myVote: r.votes[me] ?? null,
     };
@@ -149,6 +149,7 @@ export function toView(s: Room, me: string, now: number): View {
                 id: o.id,
                 text: o.text,
                 real: o.real,
+                hidden: o.hidden,
                 authors: o.authors,
                 voters: Object.entries(r.votes)
                   .filter(([, v]) => v === o.id)

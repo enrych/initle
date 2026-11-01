@@ -43,7 +43,7 @@ export type Player = {
 
 export type Solve = { stage: number; order: number; points: number; at: number };
 
-export type FakeOption = { id: string; text: string; authors: string[]; real: boolean };
+export type FakeOption = { id: string; text: string; authors: string[]; real: boolean; hidden: boolean };
 
 export type RoundState = {
   index: number; // 0-based
@@ -214,7 +214,7 @@ export type View = {
     hint: string;
     skipped: boolean;
     results: { id: string; points: number; stage: number | null; locked: number }[];
-    options: { id: string; text: string; real: boolean; authors: string[]; voters: string[] }[] | null;
+    options: { id: string; text: string; real: boolean; hidden: boolean; authors: string[]; voters: string[] }[] | null;
   };
   standings: null | { id: string; score: number; delta: number; rank: number }[];
   awards: Award[] | null;

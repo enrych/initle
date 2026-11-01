@@ -197,7 +197,10 @@ describe("fake rounds", () => {
     for (const id of ["p1", "p2", "p3"]) sim.act({ type: "fake", playerId: id, text: `${a}x${id} ${b}y ${c}z` });
     const target = sim.s.round!.options!.find((o) => o.authors.includes("p2"))!;
     sim.act({ type: "hide", playerId: "p1", target: target.id });
-    expect(sim.s.round!.options!.some((o) => o.id === target.id)).toBe(false);
+    expect(toView(sim.s, "p3", sim.t).round!.options!.some((o) => o.id === target.id)).toBe(false);
+    const realOpt = sim.s.round!.options!.find((o) => o.real)!;
+    sim.act({ type: "hide", playerId: "p1", target: realOpt.id }); // allowed: no leak
+    expect(toView(sim.s, "p1", sim.t).round!.options!.some((o) => o.id === realOpt.id)).toBe(false);
     sim.act({ type: "skip", playerId: "p1" });
     expect(sim.s.phase).toBe("reveal");
     expect(sim.s.round!.skipped).toBe(true);

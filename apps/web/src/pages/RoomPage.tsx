@@ -1,0 +1,364 @@
+import { CONFIG, type View } from "@initle/core/client";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router";
+import { ReactionBar, ReactionLayer } from "../components/Reactions";
+import { TimerRing } from "../components/Timer";
+import { toast } from "../components/Toasts";
+import { Button, Card, Logo, Modal, ROUND_META, RoundBadge, Spinner } from "../components/ui";
+import { HowToPlay } from "../components/HowToPlay";
+import { api } from "../lib/api";
+import { getIdentity, saveIdentity } from "../lib/identity";
+import { RoomContext, useRoom, useRoomConnection } from "../lib/room";
+import { inviteUrl, shareOrCopy } from "../lib/share";
+import { sfx, sound } from "../lib/sound";
+import { store } from "../lib/storage";
+import { FinalScreen } from "../screens/Final";
+import { IntroScreen } from "../screens/Intro";
+import { LobbyScreen } from "../screens/Lobby";
+import { PlayScreen } from "../screens/Play";
+import { PrepScreen } from "../screens/Prep";
+import { RevealScreen } from "../screens/Reveal";
+import { ScoreboardScreen } from "../screens/Scoreboard";
+import { VoteScreen, WriteScreen } from "../screens/Fake";
+import { NameAvatarPicker } from "./Home";
+
+export function phaseTotal(view: View): number {
+  switch (view.phase) {
+    case "prep":
+      return CONFIG.PREP_MS;
+    case "intro":
+      return CONFIG.INTRO_MS;
+    case "play":
+      return CONFIG.STAGE_MS;
+    case "write":
+      return CONFIG.WRITE_MS;
+    case "vote":
+      return CONFIG.VOTE_MS;
+    case "reveal":
+      return view.round?.type === "fake" ? CONFIG.FAKE_REVEAL_MS : CONFIG.REVEAL_MS;
+    case "scoreboard":
+      return CONFIG.SCOREBOARD_MS;
+    default:
+      return 0;
+  }
+}
+
+function Centered({ children }: { children: React.ReactNode }) {
+  return <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center gap-6 px-4 text-center">{children}</main>;
+}
+
+export function RoomPage() {
+  const code = (useParams().code ?? "").toUpperCase();
+  const [gate, setGate] = useState<"checking" | "name" | "ready" | "missing">("checking");
+  const identity = getIdentity();
+  const [name, setName] = useState(identity.name);
+  const [avatar, setAvatar] = useState(identity.avatar);
+
+  useEffect(() => {
+    let alive = true;
+    api
+      .roomStatus(code)
+      .then((s) => {
+        if (!alive) return;
+        if (!s.exists) setGate("missing");
+        else setGate(getIdentity().name ? "ready" : "name");
+      })
+      .catch(() => alive && setGate(getIdentity().name ? "ready" : "name"));
+    return () => {
+      alive = false;
+    };
+  }, [code]);
+
+  if (gate === "checking")
+    return (
+      <Centered>
+        <Spinner className="h-8 w-8" />
+      </Centered>
+    );
+  if (gate === "missing") return <RoomMissing code={code} />;
+  if (gate === "name")
+    return (
+      <Centered>
+        <Logo />
+        <h1 className="font-display text-2xl font-bold">Joining room {code}</h1>
+        <form
+          className="w-full space-y-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!name.trim()) return toast("Pick a name first", "bad");
+            saveIdentity({ name: name.trim(), avatar });
+            setGate("ready");
+          }}
+        >
+          <NameAvatarPicker name={name} avatar={avatar} onName={setName} onAvatar={setAvatar} autoFocus />
+          <Button size="lg" className="w-full" type="submit">
+            Join
+          </Button>
+        </form>
+      </Centered>
+    );
+  return <ConnectedRoom code={code} />;
+}
+
+function RoomMissing({ code }: { code: string }) {
+  return (
+    <Centered>
+      <div className="text-6xl">🫥</div>
+      <h1 className="font-display text-2xl font-bold">No room called {code}</h1>
+      <p className="text-muted">It may have ended, or the code has a typo. Rooms close a few hours after everyone leaves.</p>
+      <Link to="/">
+        <Button>Back home</Button>
+      </Link>
+    </Centered>
+  );
+}
+
+function ConnectedRoom({ code }: { code: string }) {
+  const conn = useRoomConnection(code, "player");
+  const navigate = useNavigate();
+
+  useEffect(
+    () =>
+      conn.onError((e) => {
+        if (e.code === "ROOM_NOT_FOUND") return;
+        toast(e.message, "bad");
+        if (e.code === "BAD_TEXT" || e.code === "RATE_LIMITED") sfx.miss();
+      }),
+    [conn],
+  );
+
+  useEffect(
+    () =>
+      conn.onEvent((e) => {
+        if (e.type === "kicked" && e.playerId === conn.view?.me) navigate("/");
+      }),
+    [conn, navigate],
+  );
+
+  if (conn.status === "not-found") return <RoomMissing code={code} />;
+  if (conn.status === "kicked")
+    return (
+      <Centered>
+        <div className="text-6xl">👋</div>
+        <h1 className="font-display text-2xl font-bold">The host removed you from this room</h1>
+        <Link to="/">
+          <Button>Back home</Button>
+        </Link>
+      </Centered>
+    );
+  if (conn.status === "replaced")
+    return (
+      <Centered>
+        <div className="text-6xl">🪟</div>
+        <h1 className="font-display text-2xl font-bold">You opened this room in another tab</h1>
+        <Button onClick={() => location.reload()}>Play here instead</Button>
+      </Centered>
+    );
+  if (!conn.view || !conn.view.me)
+    return (
+      <Centered>
+        <Spinner className="h-8 w-8" />
+        <p className="text-muted">{conn.status === "reconnecting" ? "Reconnecting…" : "Joining…"}</p>
+      </Centered>
+    );
+
+  return (
+    <RoomContext.Provider value={conn}>
+      <RoomShell />
+    </RoomContext.Provider>
+  );
+}
+
+function RoomShell() {
+  const room = useRoom();
+  const { view, status, offset, send } = room;
+  const [menu, setMenu] = useState(false);
+  const [howTo, setHowTo] = useState(false);
+  const [muted, setMuted] = useState(sound.muted);
+  const navigate = useNavigate();
+  const isHost = view.hostId === view.me;
+  const r = view.round;
+  const color = r ? ROUND_META[r.type].color : "#4f8cff";
+
+  useEffect(() => {
+    const off = sound.subscribe(setMuted);
+    return () => void off();
+  }, []);
+
+  // Hand-off from a custom pack page: add that pack once we're host in the lobby.
+  useEffect(() => {
+    const pending = sessionStorage.getItem("initle:pendingPack");
+    if (!pending || !isHost || view.phase !== "lobby") return;
+    sessionStorage.removeItem("initle:pendingPack");
+    send({ type: "settings", packs: [pending, ...view.settings.packs.filter((p) => p !== pending)].slice(0, CONFIG.MAX_PACKS) });
+  }, [isHost, view.phase, view.settings.packs, send]);
+
+  useEffect(() => {
+    store.set("initle:lastRoom", { code: view.code, at: Date.now() });
+  }, [view.code]);
+
+  const screen = (() => {
+    switch (view.phase) {
+      case "lobby":
+        return <LobbyScreen />;
+      case "prep":
+        return <PrepScreen />;
+      case "intro":
+        return <IntroScreen />;
+      case "play":
+        return <PlayScreen />;
+      case "write":
+        return <WriteScreen />;
+      case "vote":
+        return <VoteScreen />;
+      case "reveal":
+        return <RevealScreen />;
+      case "scoreboard":
+        return <ScoreboardScreen />;
+      case "final":
+        return <FinalScreen />;
+    }
+  })();
+
+  const showReactions = ["reveal", "scoreboard", "final", "lobby", "play", "vote"].includes(view.phase);
+
+  return (
+    <div className="mx-auto flex min-h-dvh max-w-md flex-col px-4">
+      <header className="sticky top-0 z-30 -mx-4 flex items-center gap-2 border-b border-line/60 bg-bg/85 px-4 py-2.5 backdrop-blur">
+        <button
+          onClick={async () => {
+            const res = await shareOrCopy({ title: "Join my Initle room", text: `Join my Initle game! Code ${view.code}`, url: inviteUrl(view.code) });
+            if (res === "copied") toast("Invite link copied", "good");
+          }}
+          className="rounded-xl bg-surface-2 px-3 py-1.5 font-display text-lg font-bold tracking-[0.2em] transition hover:bg-line"
+          aria-label={`Room code ${view.code}. Tap to share the invite link`}
+        >
+          {view.code}
+        </button>
+        {r && view.phase !== "final" && (
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="text-sm text-muted tabular-nums">
+              {r.index + 1}/{r.total}
+            </span>
+            <RoundBadge type={r.type} />
+            {r.multiplier > 1 && <span className="rounded-full bg-set/20 px-2 py-0.5 text-xs font-bold text-set">×{r.multiplier}</span>}
+          </div>
+        )}
+        <div className="ml-auto flex items-center gap-1">
+          {view.deadline && <TimerRing deadline={view.deadline} offset={offset} total={phaseTotal(view)} color={color} size={40} />}
+          <button
+            onClick={() => sound.setMuted(!muted)}
+            className="flex h-10 w-10 items-center justify-center rounded-full text-xl hover:bg-surface-2"
+            aria-label={muted ? "Unmute sounds" : "Mute sounds"}
+          >
+            {muted ? "🔇" : "🔊"}
+          </button>
+          <button onClick={() => setMenu(true)} className="flex h-10 w-10 items-center justify-center rounded-full text-xl hover:bg-surface-2" aria-label="Menu">
+            ⋯
+          </button>
+        </div>
+      </header>
+
+      {status !== "open" && <div className="mt-2 rounded-xl bg-set/15 px-3 py-2 text-center text-sm text-set">Connection lost. Reconnecting…</div>}
+
+      <main className="flex flex-1 flex-col py-4">{screen}</main>
+      <PhaseAnnouncer />
+
+      {showReactions && (
+        <div className="sticky bottom-0 -mx-4 border-t border-line/40 bg-bg/80 px-4 py-1 backdrop-blur safe-bottom" hidden={view.phase === "play" || view.phase === "vote"}>
+          <ReactionBar onReact={(emoji) => send({ type: "react", emoji })} />
+        </div>
+      )}
+
+      <ReactionLayer subscribe={room.onEvent} avatarOf={(id) => view.players.find((p) => p.id === id)?.avatar ?? ""} />
+
+      <Modal open={menu} onClose={() => setMenu(false)} title="Menu">
+        <div className="space-y-2">
+          <Button variant="secondary" className="w-full" onClick={() => window.open(`/stage/${view.code}`, "_blank")}>
+            Open stage screen (TV)
+          </Button>
+          <Button
+            variant="secondary"
+            className="w-full"
+            onClick={() => {
+              setMenu(false);
+              setHowTo(true);
+            }}
+          >
+            How to play
+          </Button>
+          {isHost && ["intro", "play", "write", "vote"].includes(view.phase) && (
+            <Button
+              variant="secondary"
+              className="w-full"
+              onClick={() => {
+                send({ type: "skip" });
+                setMenu(false);
+              }}
+            >
+              Skip this round
+            </Button>
+          )}
+          <Button
+            variant="danger"
+            className="w-full"
+            onClick={() => {
+              store.remove("initle:lastRoom");
+              navigate("/");
+            }}
+          >
+            Leave room
+          </Button>
+          <p className="pt-2 text-center text-xs text-muted">Signed in as {getIdentity().name}. Your seat is saved if you come back.</p>
+        </div>
+      </Modal>
+      <Modal open={howTo} onClose={() => setHowTo(false)} title="How to play">
+        <HowToPlay />
+      </Modal>
+    </div>
+  );
+}
+
+export function SectionTitle({ children, sub }: { children: React.ReactNode; sub?: React.ReactNode }) {
+  return (
+    <div className="mb-4 text-center">
+      <h1 className="font-display text-2xl font-bold">{children}</h1>
+      {sub && <p className="mt-1 text-muted">{sub}</p>}
+    </div>
+  );
+}
+
+export { Card };
+
+/** Screen-reader announcement of phase changes. */
+function PhaseAnnouncer() {
+  const { view } = useRoom();
+  const r = view.round;
+  const msg = (() => {
+    switch (view.phase) {
+      case "lobby":
+        return "In the lobby.";
+      case "prep":
+        return "Prep: write two phrases about your group.";
+      case "intro":
+        return r ? `Round ${r.index + 1} of ${r.total}: ${ROUND_META[r.type].label}.` : "";
+      case "play":
+        return r ? `Reveal stage ${r.stage + 1}.${r.hint ? ` Hint: ${r.hint}` : ""}` : "";
+      case "write":
+        return "Write a fake answer that fits the initials.";
+      case "vote":
+        return "Vote for the real answer.";
+      case "reveal":
+        return view.reveal ? `The answer was ${view.reveal.answer}.` : "";
+      case "scoreboard":
+        return "Leaderboard.";
+      case "final":
+        return "Game over.";
+    }
+  })();
+  return (
+    <div className="sr-only" aria-live="polite" role="status">
+      {msg}
+    </div>
+  );
+}
