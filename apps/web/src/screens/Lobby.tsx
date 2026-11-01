@@ -5,7 +5,7 @@ import { Avatar } from "../components/Players";
 import { QR } from "../components/QR";
 import { toast } from "../components/Toasts";
 import { Button, Card, Modal } from "../components/ui";
-import { GameSettings } from "../components/GameSettings";
+import { GameSettings, usePacks } from "../components/GameSettings";
 import { api } from "../lib/api";
 import { cn } from "../lib/cn";
 import { useRoom } from "../lib/room";
@@ -96,7 +96,7 @@ export function LobbyScreen() {
 
       <Card>
         <h2 className="mb-4 font-display text-2xl">Game settings</h2>
-        <GameSettings view={view} send={send} canEdit={isHost} onAddPack={() => setAddPack(true)} />
+        {isHost ? <GameSettings view={view} send={send} canEdit onAddPack={() => setAddPack(true)} /> : <SettingsSummary />}
       </Card>
 
       <div className="sticky bottom-14 z-10 mt-auto pt-2">
@@ -166,5 +166,36 @@ function AddPackModal({ open, onClose, onAdd }: { open: boolean; onClose: () => 
         </p>
       </form>
     </Modal>
+  );
+}
+
+/** What guests see instead of a wall of disabled controls. */
+function SettingsSummary() {
+  const { view } = useRoom();
+  const st = view.settings;
+  const host = view.players.find((p) => p.host);
+  const types = (["crack", "fake", "set"] as const).filter((t) => st[t]).map((t) => ({ crack: "Crack it", fake: "Fake it", set: "Set it" })[t]);
+  const speed = st.speed === "untimed" ? "No timer" : st.speed === "custom" ? `${Math.round(st.timers.stageMs / 1000)}s reveals` : st.speed[0]!.toUpperCase() + st.speed.slice(1);
+  const builtIn = usePacks();
+  const packs = st.packs.map((id) => view.packNames[id] ?? builtIn.find((p) => p.id === id)?.name ?? (id.startsWith("c_") ? "Custom pack" : id));
+  const rows: [string, string][] = [
+    ["Rounds", String(st.rounds)],
+    ["Round types", types.join(", ")],
+    ["Speed", speed],
+    ["Packs", packs.join(", ")],
+  ];
+  if (st.family) rows.push(["Family mode", "On"]);
+  return (
+    <div className="space-y-3">
+      <p className="text-sm font-bold text-muted">{host?.name ?? "The host"} is setting up the game.</p>
+      <dl className="divide-y-2 divide-outline/50 rounded-2xl bg-bg-deep px-4">
+        {rows.map(([k, v]) => (
+          <div key={k} className="flex justify-between gap-4 py-2.5">
+            <dt className="font-bold text-muted">{k}</dt>
+            <dd className="text-right font-extrabold">{v}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
   );
 }

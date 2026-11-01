@@ -27,7 +27,7 @@ export function inviteUrl(code: string): string {
 }
 
 /** Wordle-style Daily share: one square per stage. */
-export function dailyShareText(day: number, solvedStage: number | null, stages: number): string {
+export function dailyShareText(day: number, solvedStage: number | null, stages: number, streak = 0): string {
   const squares = Array.from({ length: stages }, (_, i) => {
     if (solvedStage === null) return "🟥";
     if (i < solvedStage) return "🟧";
@@ -35,7 +35,7 @@ export function dailyShareText(day: number, solvedStage: number | null, stages: 
     return "⬛";
   }).join("");
   const score = solvedStage === null ? "X" : String(solvedStage + 1);
-  return `Initle #${day} · ${score}/${stages}\n${squares}`;
+  return `Initle #${day} · ${score}/${stages}${streak > 1 ? ` · 🔥${streak}` : ""}\n${squares}`;
 }
 
 // ---------- Podium share card (rendered client-side to a PNG) ----------

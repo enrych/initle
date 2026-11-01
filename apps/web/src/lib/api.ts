@@ -29,6 +29,9 @@ export type DailyGuessResult = {
   stats?: DailyStats | null;
 };
 
+export type SoloPuzzle = { id: string; pack: string; wordCount: number; stages: number; board: BoardTile[]; remaining: number; cycled: boolean };
+export type SoloGuessResult = { done: boolean; solved: boolean; stage: number; newlyLocked: number; locked: number[]; hint: string | null; board: BoardTile[]; answer?: string };
+
 export const api = {
   createRoom: () => call<{ code: string }>("/api/rooms", { method: "POST" }),
   roomStatus: (code: string) => call<RoomStatus>(`/api/rooms/${encodeURIComponent(code)}`),
@@ -37,6 +40,11 @@ export const api = {
   createPack: (body: { name: string; lines: string[]; family: boolean }) =>
     call<PackSummary & { skipped: number }>("/api/packs", { method: "POST", body: JSON.stringify(body) }),
   reportPack: (id: string) => call<{ ok: boolean }>(`/api/packs/${encodeURIComponent(id)}/report`, { method: "POST" }),
+  soloNext: (packs: string[], exclude: string[]) => call<SoloPuzzle>("/api/solo/next", { method: "POST", body: JSON.stringify({ packs, exclude }) }),
+  soloGuess: (body: { id: string; guess: string; locked: number[]; stage: number; reveal?: boolean }) =>
+    call<SoloGuessResult>("/api/solo/guess", { method: "POST", body: JSON.stringify(body) }),
+  soloGiveUp: (id: string, locked: number[]) =>
+    call<{ answer: string; hint: string; board: BoardTile[] }>("/api/solo/giveup", { method: "POST", body: JSON.stringify({ id, locked }) }),
   daily: (day?: number) => call<DailyPuzzle>(`/api/daily${day ? `?day=${day}` : ""}`),
   dailyGuess: (body: { day: number; guess: string; locked: number[]; stage: number }) =>
     call<DailyGuessResult>("/api/daily/guess", { method: "POST", body: JSON.stringify(body) }),

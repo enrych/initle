@@ -137,7 +137,7 @@ export class Room extends Server<Env> {
         const pool = resolved?.items ?? [];
         const items = pickItems(pool, POOL_SIZE);
         const seed = crypto.getRandomValues(new Uint32Array(1))[0]!;
-        const ok = await this.apply({ type: "start", playerId, items, seed }, conn);
+        const ok = await this.apply({ type: "start", playerId, items, seed, packNames: resolved?.names }, conn);
         if (ok) {
           this.gameStartedAt = now;
           await this.persist();

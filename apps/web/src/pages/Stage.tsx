@@ -1,6 +1,6 @@
 import { CONFIG } from "@initle/core/client";
-import { motion } from "motion/react";
-import { useEffect } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import { Board } from "../components/Board";
 import { Avatar, PlayerStrip } from "../components/Players";
@@ -26,6 +26,23 @@ export function StagePage() {
   useEffect(() => {
     document.title = `Initle · ${code}`;
   }, [code]);
+
+  // Big celebration on the TV whenever someone cracks it.
+  const [banner, setBanner] = useState<{ id: number; name: string; avatar: string; first: boolean } | null>(null);
+  const viewRef = useRef(conn.view);
+  viewRef.current = conn.view;
+  useEffect(
+    () =>
+      conn.onEvent((e) => {
+        if (e.type !== "solve") return;
+        const p = viewRef.current?.players.find((x) => x.id === e.playerId);
+        if (!p) return;
+        const b = { id: Date.now(), name: p.name, avatar: p.avatar, first: e.first };
+        setBanner(b);
+        setTimeout(() => setBanner((cur) => (cur?.id === b.id ? null : cur)), 2400);
+      }),
+    [conn],
+  );
 
   if (conn.status === "not-found")
     return (
@@ -69,7 +86,13 @@ export function StagePage() {
                 </motion.div>
               ))}
             </div>
-            <p className="text-2xl text-muted">{view.players.length < CONFIG.MIN_PLAYERS ? `Waiting for at least ${CONFIG.MIN_PLAYERS} players…` : "Waiting for the host to start…"}</p>
+            <p className="text-2xl text-muted">
+              {view.players.length === 0
+                ? "The first phone to join becomes the host."
+                : view.players.length < CONFIG.MIN_PLAYERS
+                  ? `Waiting for at least ${CONFIG.MIN_PLAYERS} players…`
+                  : `Waiting for ${view.players.find((p) => p.host)?.name ?? "the host"} to start…`}
+            </p>
           </div>
         );
       case "prep":
@@ -180,6 +203,23 @@ export function StagePage() {
       <main className="flex flex-1 items-center justify-center py-8">{content}</main>
       {conn.status !== "open" && <p className="text-center text-xl text-set">Reconnecting…</p>}
       <ReactionLayer subscribe={conn.onEvent} avatarOf={(id) => view.players.find((p) => p.id === id)?.avatar ?? ""} big />
+      <AnimatePresence>
+        {banner && (
+          <motion.div
+            key={banner.id}
+            initial={{ y: 120, opacity: 0, rotate: -6 }}
+            animate={{ y: 0, opacity: 1, rotate: -3 }}
+            exit={{ y: 120, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 400, damping: 20 }}
+            className="pointer-events-none fixed inset-x-0 bottom-16 z-30 flex justify-center"
+          >
+            <div className="flex items-center gap-4 rounded-3xl border-4 border-outline bg-good px-8 py-4 font-display text-5xl text-outline shadow-[0_8px_0_var(--color-outline)]">
+              <span className="text-6xl">{banner.avatar}</span>
+              {banner.name} cracked it{banner.first ? " first!" : "!"}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       {view.paused && (
         <RoomContext.Provider value={conn}>
           <PausedOverlay big />

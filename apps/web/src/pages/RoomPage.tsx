@@ -1,5 +1,5 @@
 import { CONFIG, type View } from "@initle/core/client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { ReactionBar, ReactionLayer } from "../components/Reactions";
 import { TimerRing } from "../components/Timer";
@@ -231,6 +231,26 @@ function RoomShell() {
     store.set("initle:lastRoom", { code: view.code, at: Date.now() });
   }, [view.code]);
 
+  // Closing the tab or hitting back mid-game asks first (the seat is kept either way).
+  useEffect(() => {
+    if (!inGame) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [inGame]);
+
+  // Joining a game that's already running: say where we are.
+  const greeted = useRef(false);
+  useEffect(() => {
+    if (greeted.current) return;
+    greeted.current = true;
+    if (view.round && inGame) toast(`You joined in round ${view.round.index + 1} of ${view.round.total}. Jump in!`, "info", 4000);
+    else if (view.phase === "prep") toast("The game is starting: write your two phrases!", "info", 4000);
+  }, [view.round, inGame, view.phase]);
+
   const screen = (() => {
     switch (view.phase) {
       case "lobby":
@@ -258,53 +278,59 @@ function RoomShell() {
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col px-4">
-      <header className="sticky top-0 z-30 -mx-4 flex items-center gap-2 border-b-[3px] border-outline bg-bg/90 px-4 py-2.5 backdrop-blur">
-        <button
-          onClick={async () => {
-            const res = await shareOrCopy({ title: "Join my Initle room", text: `Join my Initle game! Code ${view.code}`, url: inviteUrl(view.code) });
-            if (res === "copied") toast("Invite link copied", "good");
-          }}
-          className="btn3d rounded-xl bg-cream px-3 py-1 font-display text-xl tracking-[0.2em] text-outline"
-          aria-label={`Room code ${view.code}. Tap to share the invite link`}
-        >
-          {view.code}
-        </button>
-        {r && view.phase !== "final" && (
-          <div className="flex min-w-0 items-center gap-2">
-            <span className="text-sm text-muted tabular-nums">
-              {r.index + 1}/{r.total}
-            </span>
-            <RoundBadge type={r.type} />
-            {r.multiplier > 1 && <span className="rounded-full bg-set/20 px-2 py-0.5 text-xs font-bold text-set">×{r.multiplier}</span>}
-          </div>
-        )}
-        <div className="ml-auto flex items-center gap-1">
-          {view.deadline && <TimerRing deadline={view.deadline} offset={offset} total={phaseTotal(view)} color={color} size={40} />}
-          {canNext && (
-            <button onClick={() => send({ type: "next" })} className="btn3d flex h-10 items-center justify-center rounded-xl bg-set px-2.5 font-display text-outline" aria-label="Next: skip the wait">
-              Next ▸
-            </button>
-          )}
-          {canPause && (
-            <button
-              onClick={() => send({ type: view.paused ? "resume" : "pause" })}
-              className="btn3d flex h-10 w-10 items-center justify-center rounded-xl bg-surface-2 font-display text-lg"
-              aria-label={view.paused ? "Resume game" : "Pause game"}
-            >
-              {view.paused ? "▶" : "⏸"}
-            </button>
-          )}
+      <header className="sticky top-0 z-30 -mx-4 border-b-[3px] border-outline bg-bg/90 backdrop-blur">
+        <div className="flex items-center gap-2 px-4 py-2">
           <button
-            onClick={() => sound.setMuted(!muted)}
-            className="btn3d flex h-10 w-10 items-center justify-center rounded-xl bg-surface-2 text-lg"
-            aria-label={muted ? "Unmute sounds" : "Mute sounds"}
+            onClick={async () => {
+              const res = await shareOrCopy({ title: "Join my Initle room", text: `Join my Initle game! Code ${view.code}`, url: inviteUrl(view.code) });
+              if (res === "copied") toast("Invite link copied", "good");
+            }}
+            className="btn3d rounded-xl bg-cream px-3 py-1 font-display text-xl tracking-[0.2em] text-outline"
+            aria-label={`Room code ${view.code}. Tap to share the invite link`}
           >
-            {muted ? "🔇" : "🔊"}
+            {view.code}
           </button>
-          <button onClick={() => setMenu(true)} className="btn3d flex h-10 w-10 items-center justify-center rounded-xl bg-surface-2 font-display text-xl" aria-label="Menu">
-            ⋯
-          </button>
+          <div className="ml-auto flex items-center gap-1.5">
+            {view.deadline && <TimerRing deadline={view.deadline} offset={offset} total={phaseTotal(view)} color={color} size={40} />}
+            {canPause && (
+              <button
+                onClick={() => send({ type: view.paused ? "resume" : "pause" })}
+                className="btn3d flex h-10 w-10 items-center justify-center rounded-xl bg-surface-2 font-display text-lg"
+                aria-label={view.paused ? "Resume game" : "Pause game"}
+              >
+                {view.paused ? "▶" : "⏸"}
+              </button>
+            )}
+            <button onClick={() => setMenu(true)} className="btn3d flex h-10 w-10 items-center justify-center rounded-xl bg-surface-2 font-display text-xl" aria-label="Menu">
+              ⋯
+            </button>
+          </div>
         </div>
+        {(r && view.phase !== "final" && view.phase !== "lobby") || view.phase === "prep" ? (
+          <div className="flex h-11 items-center gap-2 border-t-2 border-outline/60 bg-bg-deep/50 px-4">
+            {r && view.phase !== "prep" ? (
+              <>
+                <span className="font-display text-base tabular-nums text-muted">
+                  Round {r.index + 1}/{r.total}
+                </span>
+                <RoundBadge type={r.type} />
+                {r.multiplier > 1 && <span className="rounded-lg border-2 border-outline bg-set px-1.5 font-display text-sm text-outline">×{r.multiplier}</span>}
+              </>
+            ) : (
+              <span className="font-display text-base text-muted">Prep · writing puzzles</span>
+            )}
+            <div className="ml-auto flex items-center gap-1.5">
+              <button onClick={() => setHowTo(true)} className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-outline bg-surface-2 font-display text-sm" aria-label="How to play">
+                ?
+              </button>
+              {canNext && (
+                <button onClick={() => send({ type: "next" })} className="btn3d flex h-8 items-center rounded-xl bg-set px-2.5 font-display text-sm text-outline" aria-label={view.phase === "prep" ? "Start now" : "Next: skip the wait"}>
+                  {view.phase === "prep" ? "Start now ▸" : "Next ▸"}
+                </button>
+              )}
+            </div>
+          </div>
+        ) : null}
       </header>
 
       {status !== "open" && <div className="panel-sm mt-2 bg-set px-3 py-2 text-center text-sm font-extrabold text-outline">Connection lost. Reconnecting…</div>}
@@ -322,6 +348,9 @@ function RoomShell() {
 
       <Modal open={menu} onClose={() => setMenu(false)} title="Menu">
         <div className="space-y-2">
+          <Button variant="secondary" className="w-full" onClick={() => sound.setMuted(!muted)}>
+            {muted ? "🔇 Sound off: turn on" : "🔊 Sound on: turn off"}
+          </Button>
           <Button variant="secondary" className="w-full" onClick={() => window.open(`/stage/${view.code}`, "_blank")}>
             Open stage screen (TV)
           </Button>
@@ -370,6 +399,7 @@ function RoomShell() {
             variant="danger"
             className="w-full"
             onClick={() => {
+              if (inGame && !confirm("Leave the game? Your score is kept if you come back with the room code.")) return;
               store.remove("initle:lastRoom");
               navigate("/");
             }}

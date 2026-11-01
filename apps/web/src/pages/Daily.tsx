@@ -9,6 +9,7 @@ import { StagePips } from "../screens/Play";
 import { api, type DailyPuzzle, type DailyStats } from "../lib/api";
 import { cn } from "../lib/cn";
 import { dailyShareText, shareOrCopy } from "../lib/share";
+import { STREAK_MILESTONES, getRecord, streakStatus, updateRecord, type DailyRecord } from "../lib/streak";
 import { sfx } from "../lib/sound";
 import { confetti } from "../lib/confetti";
 import { store } from "../lib/storage";
@@ -26,26 +27,7 @@ type DayState = {
   answer: string | null;
   stats: DailyStats | null;
 };
-type DailyRecord = { played: number; wins: number; streak: number; best: number; lastDay: number; dist: number[] };
-
 const stateKey = (day: number) => `initle:daily:${day}`;
-const RECORD_KEY = "initle:daily:record";
-const emptyRecord = (): DailyRecord => ({ played: 0, wins: 0, streak: 0, best: 0, lastDay: 0, dist: [0, 0, 0, 0, 0] });
-
-function updateRecord(day: number, solvedStage: number | null) {
-  const rec = store.get<DailyRecord>(RECORD_KEY, emptyRecord());
-  if (rec.lastDay >= day) return rec;
-  rec.played++;
-  if (solvedStage !== null) {
-    rec.wins++;
-    rec.streak = rec.lastDay === day - 1 ? rec.streak + 1 : 1;
-    rec.best = Math.max(rec.best, rec.streak);
-    rec.dist[solvedStage] = (rec.dist[solvedStage] ?? 0) + 1;
-  } else rec.streak = 0;
-  rec.lastDay = day;
-  store.set(RECORD_KEY, rec);
-  return rec;
-}
 
 function useNextPuzzleCountdown() {
   const [left, setLeft] = useState(0);
@@ -125,7 +107,13 @@ export function DailyPage() {
       setSt(next);
       if (res.done) {
         if (puzzle.day === puzzle.today) {
-          updateRecord(puzzle.day, res.solved ? res.stage : null);
+          const rec = updateRecord(puzzle.day, res.solved ? res.stage : null);
+          if (res.solved && STREAK_MILESTONES.includes(rec.streak)) {
+            setTimeout(() => {
+              confetti({ count: 200, spread: 1.4 });
+              toast(`🔥 ${rec.streak}-day streak! Keep it going tomorrow.`, "good", 4500);
+            }, 900);
+          } else if (res.solved && rec.streak > 1) toast(`🔥 ${rec.streak}-day streak!`, "good", 3000);
           store.set("initle:daily:last", { day: puzzle.day, done: true });
         }
       } else inputRef.current?.focus();
@@ -150,7 +138,8 @@ export function DailyPage() {
       </main>
     );
 
-  const record = store.get<DailyRecord>(RECORD_KEY, emptyRecord());
+  const record = getRecord();
+  const streak = streakStatus();
   const triesLeft = puzzle.stages - st.stage;
 
   return (
@@ -160,7 +149,14 @@ export function DailyPage() {
           <Logo size="sm" />
         </Link>
         <div className="text-right text-sm text-muted">
-          <div className="font-display text-2xl text-ink text-shadow-hard">Daily #{puzzle.day}</div>
+          <div className="flex items-center justify-end gap-2">
+            {streak.streak > 0 && (
+              <span className="rounded-lg border-2 border-outline bg-set px-1.5 font-display text-sm text-outline" title="Daily streak">
+                🔥 {streak.streak}
+              </span>
+            )}
+            <span className="font-display text-2xl text-ink text-shadow-hard">Daily #{puzzle.day}</span>
+          </div>
           {puzzle.date}
         </div>
       </header>
@@ -176,9 +172,17 @@ export function DailyPage() {
 
       {!st.done ? (
         <>
-          <p className="text-center text-sm text-muted">
-            {triesLeft} {triesLeft === 1 ? "guess" : "guesses"} left. Every guess reveals more. Correct words stay green.
-          </p>
+          {st.attempts.length === 0 ? (
+            <div className="panel-sm space-y-1.5 p-4 text-sm">
+              <p className="font-display text-lg">How it works</p>
+              <p className="font-bold text-muted">Guess the phrase from its first letters. You have {puzzle.stages} guesses.</p>
+              <p className="font-bold text-muted">Each miss reveals more: word lengths, then a hint, then letters. Words you get right stay green, so partial guesses help.</p>
+            </div>
+          ) : (
+            <p className="text-center text-sm text-muted">
+              {triesLeft} {triesLeft === 1 ? "guess" : "guesses"} left. Every guess reveals more. Correct words stay green.
+            </p>
+          )}
           <form onSubmit={submit} className={cn("flex gap-2", shake && "animate-shake")} key={shake}>
             <input
               ref={inputRef}
@@ -241,7 +245,7 @@ function DailyResult({ puzzle, st, record, countdown }: { puzzle: DailyPuzzle; s
   const dist = st.stats ? [st.stats.s0, st.stats.s1, st.stats.s2, st.stats.s3, st.stats.s4, st.stats.failed] : [];
   const max = Math.max(1, ...dist);
   const share = async () => {
-    const res = await shareOrCopy({ text: dailyShareText(puzzle.day, solvedStage, puzzle.stages), url: `${location.origin}/daily` });
+    const res = await shareOrCopy({ text: dailyShareText(puzzle.day, solvedStage, puzzle.stages, record.lastDay === puzzle.day ? record.streak : 0), url: `${location.origin}/daily` });
     if (res === "copied") toast("Result copied", "good");
   };
   return (
@@ -252,7 +256,7 @@ function DailyResult({ puzzle, st, record, countdown }: { puzzle: DailyPuzzle; s
           The answer: <b>{st.answer}</b>
         </p>
       </div>
-      <pre className="panel p-4 text-center font-sans text-xl">{dailyShareText(puzzle.day, solvedStage, puzzle.stages)}</pre>
+      <pre className="panel p-4 text-center font-sans text-xl">{dailyShareText(puzzle.day, solvedStage, puzzle.stages, record.lastDay === puzzle.day ? record.streak : 0)}</pre>
       <Button size="lg" variant="crack" className="w-full" onClick={share}>
         Share result
       </Button>

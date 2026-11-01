@@ -17,6 +17,7 @@ let shot = 0;
 async function newPlayer(name) {
   const ctx = await browser.newContext(phone);
   const page = await ctx.newPage();
+  page.on("dialog", (d) => d.accept()); // leave/kick confirmations
   page.on("pageerror", (e) => errors.push(`${name}: ${e.message}`));
   page.on("console", (m) => m.type() === "error" && !m.text().includes("WebSocket") && errors.push(`${name} console: ${m.text()}`));
   return page;
@@ -115,11 +116,11 @@ while (Date.now() < deadline) {
     await host.waitForFunction(() => document.body.innerText.includes("Which one is real?"), null, { timeout: 15000 });
     continue;
   }
-  if (await host.getByLabel("Your guess").isVisible().catch(() => false) || text.includes("This is your puzzle")) {
+  if (await host.getByLabel("Your guess", { exact: true }).isVisible().catch(() => false) || text.includes("This is your puzzle")) {
     if (text.includes("Puzzle by") || text.includes("This is your puzzle")) sawSet = true;
     // A wrong guess (shake) and a partial guess, then the host skips to keep the test fast.
     for (const p of players) {
-      const input = p.getByLabel("Your guess");
+      const input = p.getByLabel("Your guess", { exact: true });
       if (await input.isVisible().catch(() => false)) {
         await input.fill("the of and a");
         await input.press("Enter");
@@ -184,6 +185,21 @@ for (let i = 0; i < 5; i++) {
 }
 await solo.getByText("Share result").waitFor();
 await snap(solo, "daily-done");
+
+// Solo: start, a wrong guess, give up, next puzzle
+await solo.goto(`${BASE}/solo`);
+await solo.getByRole("button", { name: "Start playing" }).click();
+const soloInput = solo.getByRole("textbox", { name: "Your guess" });
+await soloInput.waitFor();
+await soloInput.fill("definitely not it");
+await soloInput.press("Enter");
+await solo.getByText("no match").waitFor();
+await snap(solo, "solo-playing");
+await solo.getByRole("button", { name: "Give up and show the answer" }).click();
+await solo.getByText("The answer:").waitFor();
+await snap(solo, "solo-missed");
+await solo.getByRole("button", { name: "Next puzzle ▸" }).click();
+await soloInput.waitFor();
 
 // Custom pack
 await solo.goto(`${BASE}/packs/new`);

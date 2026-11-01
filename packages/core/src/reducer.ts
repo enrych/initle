@@ -1,7 +1,9 @@
 import { CONFIG, PROMPTS, SPEED_PRESETS, clampTimers } from "./config";
 import { checkName, checkPhrase, cleanText, containsBlocked } from "./moderation";
 import { hashString, mulberry32, shuffle } from "./random";
-import { evaluateGuess, fitsInitials, phraseKey, stripDiacritics } from "./text";
+import { evaluateGuess, fitsInitials, phraseKey, stripDiacritics, wordTokens } from "./text";
+
+const FAKE_MAX_WORDS = 5;
 import type {
   Action,
   FakeOption,
@@ -178,6 +180,10 @@ function startRound(s: Room, now: number) {
       prompt = entry.prompt;
       item = { id: `set-${index}`, pack: "set", text: entry.text, hint: PROMPTS[entry.prompt] ?? "", aliases: [] };
     }
+  } else if (type === "fake") {
+    // Fakes are typed on a phone against the clock: prefer phrases of 5 words or fewer.
+    const short = s.pool.findIndex((i) => wordTokens(i.text).length <= FAKE_MAX_WORDS);
+    item = (short >= 0 ? s.pool.splice(short, 1)[0] : s.pool.shift()) ?? null;
   } else {
     item = s.pool.shift() ?? null;
   }
@@ -547,6 +553,7 @@ export function reduce(prev: Room, action: Action, now: number): ReduceResult {
         p.stats = emptyStats();
       }
       s.seed = action.seed >>> 0;
+      if (action.packNames) s.packNames = { ...s.packNames, ...action.packNames };
       s.pool = s.settings.family ? action.items.filter((i) => !containsBlocked(i.text)) : [...action.items];
       s.prevScores = {};
       s.round = null;

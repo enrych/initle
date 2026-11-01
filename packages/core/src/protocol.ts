@@ -81,3 +81,23 @@ export const DailyGuessBody = z.object({
   stage: z.number().int().min(0).max(CONFIG.STAGES - 1),
 });
 export type DailyGuessBody = z.infer<typeof DailyGuessBody>;
+
+// ---------- Solo (endless) ----------
+
+export const SoloNextBody = z.object({
+  packs: z.array(PackIdSchema).min(1).max(CONFIG.MAX_PACKS),
+  exclude: z.array(z.string().max(40)).max(300).default([]),
+});
+export type SoloNextBody = z.infer<typeof SoloNextBody>;
+
+export const SoloGuessBody = z.object({
+  id: z.string().min(1).max(40),
+  /** Empty with reveal=true: skip ahead one stage without guessing. */
+  guess: z.string().trim().max(CONFIG.GUESS_MAX),
+  reveal: z.boolean().optional(),
+  locked: z.array(z.number().int().min(0).max(40)).max(40),
+  stage: z.number().int().min(0).max(CONFIG.STAGES - 1),
+});
+export type SoloGuessBody = z.infer<typeof SoloGuessBody>;
+
+export const SoloGiveUpBody = z.object({ id: z.string().min(1).max(40), locked: z.array(z.number().int().min(0).max(40)).max(40).default([]) });

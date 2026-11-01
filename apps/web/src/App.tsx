@@ -7,6 +7,7 @@ import { Home } from "./pages/Home";
 const RoomPage = lazy(() => import("./pages/RoomPage").then((m) => ({ default: m.RoomPage })));
 const StagePage = lazy(() => import("./pages/Stage").then((m) => ({ default: m.StagePage })));
 const DailyPage = lazy(() => import("./pages/Daily").then((m) => ({ default: m.DailyPage })));
+const SoloPage = lazy(() => import("./pages/Solo").then((m) => ({ default: m.SoloPage })));
 const PackNewPage = lazy(() => import("./pages/Packs").then((m) => ({ default: m.PackNewPage })));
 const PackLandingPage = lazy(() => import("./pages/Packs").then((m) => ({ default: m.PackLandingPage })));
 
@@ -63,6 +64,7 @@ export const router = createBrowserRouter([
       { path: "/r/:code", element: <RoomPage /> },
       { path: "/stage/:code", element: <StagePage /> },
       { path: "/daily", element: <DailyPage /> },
+      { path: "/solo", element: <SoloPage /> },
       { path: "/packs/new", element: <PackNewPage /> },
       { path: "/p/:id", element: <PackLandingPage /> },
       { path: "*", element: <NotFound /> },

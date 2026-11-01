@@ -135,7 +135,7 @@ export type Action =
   | { type: "next"; playerId: string }
   | { type: "end"; playerId: string }
   | { type: "host"; playerId: string; target: string }
-  | { type: "start"; playerId: string; items: Item[]; seed: number }
+  | { type: "start"; playerId: string; items: Item[]; seed: number; packNames?: Record<PackId, string> }
   | { type: "prep"; playerId: string; slot: number; text: string }
   | { type: "guess"; playerId: string; text: string }
   | { type: "fake"; playerId: string; text: string }

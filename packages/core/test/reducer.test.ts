@@ -356,6 +356,15 @@ describe("fake rounds", () => {
     expect(v.reveal!.options!.find((o) => o.real)!.voters).toEqual(["p2"]);
   });
 
+  it("fake rounds prefer short phrases", () => {
+    const sim = lobby({ fake: true, set: false, crack: false, rounds: 3 });
+    const long: Item = { id: "long", pack: "idioms", text: "Not the sharpest tool in the shed", hint: "x", aliases: [] };
+    sim.act({ type: "start", playerId: "p1", items: [long, ...items], seed: 1 });
+    sim.next();
+    expect(sim.s.round!.type).toBe("fake");
+    expect(sim.s.round!.item.id).not.toBe("long");
+  });
+
   it("does not leak which option is real during voting", () => {
     const sim = toWrite();
     const [a, b, c] = sim.s.round!.item.text.split(" ").map((w) => w[0]!.toLowerCase());
