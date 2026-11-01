@@ -10,8 +10,6 @@
     "typecheck": "pnpm -r typecheck",
     "deploy": "pnpm build && pnpm --filter server deploy",
     "e2e": "./scripts/e2e.sh",
-    "assets": "node scripts/gen-assets.mjs",
-    "db:migrate:local": "pnpm --filter server exec wrangler d1 migrations apply initle --local",
-    "db:migrate:remote": "pnpm --filter server exec wrangler d1 migrations apply initle --remote"
+    "assets": "node scripts/gen-assets.mjs"
   }
 }

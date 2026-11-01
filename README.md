@@ -33,10 +33,6 @@ pnpm install
 ```
 
 ```bash
-pnpm db:migrate:local
-```
-
-```bash
 pnpm dev
 ```
 
@@ -61,18 +57,24 @@ pnpm e2e
 
 ## Deploy (Cloudflare)
 
-Deploys run from GitHub Actions (`.github/workflows/deploy.yml`): every push to `main` builds, tests, creates the D1 database if it doesn't exist, applies migrations, deploys the Worker and checks the live site. The URL appears on the workflow run and in the repo's **production** environment.
+Deploys use Cloudflare's Git integration (Workers Builds): Cloudflare pulls this repo and builds it on every push to the production branch. No API tokens, no GitHub secrets.
 
-One-time setup, in the GitHub repo → Settings → Secrets and variables → Actions:
+One-time setup in the Cloudflare dashboard:
 
-| Secret | Value |
-| --- | --- |
-| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare dashboard → Workers & Pages → Account ID (right sidebar) |
-| `CLOUDFLARE_API_TOKEN` | Cloudflare dashboard → My Profile → API Tokens → Create Token → "Edit Cloudflare Workers" template, plus **D1: Edit** |
+1. **Workers & Pages → Create → Import a repository**, connect GitHub and pick `enrych/initle`.
+2. Settings:
 
-To deploy manually, use the **Run workflow** button on the Deploy workflow (Actions tab). If your Cloudflare account has never used Workers, open Workers & Pages once to pick a `workers.dev` subdomain before the first deploy.
+   | Field | Value |
+   | --- | --- |
+   | Project name | `initle` (must match `name` in `apps/server/wrangler.jsonc`) |
+   | Production branch | `main` |
+   | Build command | `pnpm build` |
+   | Deploy command | `cd apps/server && npx wrangler deploy` |
+   | Root directory | `/` |
 
-Write endpoints are rate-limited per IP by the Workers Rate Limiting binding (`ratelimits` in `wrangler.jsonc`: 20/min for creating rooms and packs, 60/min for Daily guesses). Durable Objects with SQLite storage, D1 and static assets all work on the Workers free plan for early traffic.
+3. **Save and Deploy.** The first deploy creates the D1 database automatically (Wrangler automatic provisioning); the Worker creates its own tables on first use. The live `*.workers.dev` URL appears on the Worker's page.
+
+Every later push to `main` redeploys. Write endpoints are rate-limited per IP by the Workers Rate Limiting binding (`ratelimits` in `wrangler.jsonc`: 20/min for creating rooms and packs, 60/min for Daily guesses). Durable Objects with SQLite storage, D1 and static assets all work on the Workers free plan for early traffic.
 
 ## Content
 

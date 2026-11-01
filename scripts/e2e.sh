@@ -4,7 +4,6 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 PORT="${PORT:-8787}"
 pnpm --filter web build
-(cd apps/server && npx wrangler d1 migrations apply initle --local >/dev/null)
 if curl -sf "http://localhost:$PORT/api/health" >/dev/null 2>&1; then
   echo "Port $PORT is already serving something. Stop it or set PORT=..." >&2
   exit 1

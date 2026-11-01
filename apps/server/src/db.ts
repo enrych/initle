@@ -1,8 +1,31 @@
 import type { Item } from "@initle/core";
+import schemaSql from "../migrations/0001_init.sql";
+
+/**
+ * The Worker creates its own tables (idempotent CREATE ... IF NOT EXISTS), once per isolate.
+ * No separate migration step is needed in any deploy pipeline, including Cloudflare Workers Builds.
+ */
+const STATEMENTS = schemaSql
+  .split(";")
+  .map((s) => s.replace(/--.*$/gm, "").trim())
+  .filter(Boolean);
+let schemaReady: Promise<void> | null = null;
+
+export function ensureSchema(db: D1Database): Promise<void> {
+  schemaReady ??= db
+    .batch(STATEMENTS.map((sql) => db.prepare(sql)))
+    .then(() => undefined)
+    .catch((e) => {
+      schemaReady = null; // retry on the next request
+      throw e;
+    });
+  return schemaReady;
+}
 
 export type CustomPack = { id: string; name: string; family: boolean; items: Item[] };
 
 export async function loadCustomPacks(db: D1Database, ids: string[]): Promise<CustomPack[]> {
+  await ensureSchema(db);
   if (ids.length === 0) return [];
   const marks = ids.map(() => "?").join(",");
   const [packs, rows] = await db.batch([
@@ -27,6 +50,7 @@ export async function insertCustomPack(
   db: D1Database,
   pack: { id: string; name: string; family: boolean; items: { text: string; hint: string }[] },
 ) {
+  await ensureSchema(db);
   const stmts = [
     db
       .prepare("INSERT INTO packs (id, name, family, item_count, created_at) VALUES (?, ?, ?, ?, ?)")
@@ -39,12 +63,14 @@ export async function insertCustomPack(
 }
 
 export async function reportPack(db: D1Database, id: string) {
+  await ensureSchema(db);
   await db.prepare("UPDATE packs SET reports = reports + 1 WHERE id = ?").bind(id).run();
 }
 
 const STAGE_COLUMNS = ["s0", "s1", "s2", "s3", "s4"] as const;
 
 export async function recordDaily(db: D1Database, day: number, stage: number | null) {
+  await ensureSchema(db);
   const col = stage === null ? "failed" : STAGE_COLUMNS[stage];
   if (!col) return;
   await db
@@ -56,6 +82,7 @@ export async function recordDaily(db: D1Database, day: number, stage: number | n
 export type DailyStats = { s0: number; s1: number; s2: number; s3: number; s4: number; failed: number };
 
 export async function getDailyStats(db: D1Database, day: number): Promise<DailyStats> {
+  await ensureSchema(db);
   const row = await db.prepare("SELECT s0, s1, s2, s3, s4, failed FROM daily_stats WHERE day = ?").bind(day).first<DailyStats>();
   return row ?? { s0: 0, s1: 0, s2: 0, s3: 0, s4: 0, failed: 0 };
 }
@@ -64,6 +91,7 @@ export async function recordGame(
   db: D1Database,
   g: { code: string; players: number; rounds: number; plan: string; packs: string; durationMs: number },
 ) {
+  await ensureSchema(db);
   await db
     .prepare("INSERT INTO games (code, players, rounds, plan, packs, duration_ms, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
     .bind(g.code, g.players, g.rounds, g.plan, g.packs, g.durationMs, Date.now())

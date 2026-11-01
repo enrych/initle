@@ -1,5 +1,5 @@
 -- Custom packs created by hosts (built-in packs ship in code).
-CREATE TABLE packs (
+CREATE TABLE IF NOT EXISTS packs (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   family INTEGER NOT NULL DEFAULT 0,
@@ -9,7 +9,7 @@ CREATE TABLE packs (
   created_at INTEGER NOT NULL
 );
 
-CREATE TABLE pack_items (
+CREATE TABLE IF NOT EXISTS pack_items (
   pack_id TEXT NOT NULL REFERENCES packs(id) ON DELETE CASCADE,
   idx INTEGER NOT NULL,
   text TEXT NOT NULL,
@@ -18,7 +18,7 @@ CREATE TABLE pack_items (
 );
 
 -- Daily puzzle stats: how many solved at each stage, how many failed.
-CREATE TABLE daily_stats (
+CREATE TABLE IF NOT EXISTS daily_stats (
   day INTEGER PRIMARY KEY,
   s0 INTEGER NOT NULL DEFAULT 0,
   s1 INTEGER NOT NULL DEFAULT 0,
@@ -29,7 +29,7 @@ CREATE TABLE daily_stats (
 );
 
 -- One row per finished Party game (analytics only, no player text).
-CREATE TABLE games (
+CREATE TABLE IF NOT EXISTS games (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   code TEXT NOT NULL,
   players INTEGER NOT NULL,
@@ -39,4 +39,4 @@ CREATE TABLE games (
   duration_ms INTEGER NOT NULL,
   created_at INTEGER NOT NULL
 );
-CREATE INDEX games_created ON games(created_at);
+CREATE INDEX IF NOT EXISTS games_created ON games(created_at);
