@@ -205,7 +205,10 @@ function toReveal(s: Room, now: number) {
     if (r.type === "set" && r.author && s.players[r.author]) {
       const solvers = Object.keys(r.solves).filter((id) => s.players[id] && id !== r.author).length;
       const field = s.order.filter((id) => id !== r.author && (s.players[id]!.connected || r.solves[id])).length;
-      if (solvers > 0 && solvers < field) {
+      // Sweet spot: some but not all solve. In a duo (field of 1) that can't happen, so the author
+      // scores when the opponent solves, but not at the very first stage (the puzzle wasn't trivial).
+      const duoWin = field === 1 && solvers === 1 && Object.entries(r.solves).some(([id, sv]) => id !== r.author && sv.stage >= 1);
+      if ((field > 1 && solvers > 0 && solvers < field) || duoWin) {
         const pts = CONFIG.SET_AUTHOR_POINTS * solvers * m;
         awarded[r.author] = (awarded[r.author] ?? 0) + pts;
         s.players[r.author]!.stats.setPoints += pts;

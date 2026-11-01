@@ -1,5 +1,5 @@
 export const CONFIG = {
-  MIN_PLAYERS: 3,
+  MIN_PLAYERS: 2,
   MAX_PLAYERS: 10,
   ROUND_OPTIONS: [5, 8, 12] as const,
   DEFAULT_ROUNDS: 8,

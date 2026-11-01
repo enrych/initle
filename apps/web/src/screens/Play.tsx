@@ -113,7 +113,13 @@ export function PlayScreen() {
         <div className="panel bg-set p-5 text-center text-outline">
           <p className="font-display text-2xl">This is your puzzle!</p>
           <p className="mt-1 text-sm font-bold">
-            You get {CONFIG.SET_AUTHOR_POINTS * r.multiplier} per solver, but only if <b>some, not all</b> crack it. {solvedCount} solved so far.
+            {view.players.filter((p) => p.id !== r.author).length === 1 ? (
+              <>You get {CONFIG.SET_AUTHOR_POINTS * r.multiplier} if they crack it, but not on the very first stage.</>
+            ) : (
+              <>
+                You get {CONFIG.SET_AUTHOR_POINTS * r.multiplier} per solver, but only if <b>some, not all</b> crack it. {solvedCount} solved so far.
+              </>
+            )}
           </p>
         </div>
       ) : solved ? (

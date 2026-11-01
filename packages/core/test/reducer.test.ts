@@ -69,6 +69,27 @@ describe("lobby rules", () => {
     const sim = lobby();
     expect(sim.act({ type: "join", playerId: "p2", token: "tok-wrong-xx", name: "Ben", avatar: "🦊" }).error?.code).toBe("UNKNOWN_PLAYER");
   });
+  it("a duo can start, and the Set author scores only if the puzzle wasn't instant", () => {
+    const sim = new Sim();
+    sim.act({ type: "create", code: "BCDF" });
+    sim.act({ type: "join", playerId: "p1", token: "tok-p1-xxxx", name: "Ana", avatar: "🦊" });
+    sim.act({ type: "join", playerId: "p2", token: "tok-p2-xxxx", name: "Ben", avatar: "🦊" });
+    sim.act({ type: "settings", playerId: "p1", fake: false, set: true, rounds: 5 });
+    expect(sim.act({ type: "start", playerId: "p1", items, seed: 2 }).error).toBeUndefined();
+    for (const id of ["p1", "p2"]) {
+      sim.act({ type: "prep", playerId: id, slot: 0, text: `Duo phrase one ${id}` });
+      sim.act({ type: "prep", playerId: id, slot: 1, text: `Duo phrase two ${id}` });
+    }
+    while (!(sim.s.round!.type === "set" && sim.s.phase === "play")) sim.next();
+    const author = sim.s.round!.author!;
+    const other = author === "p1" ? "p2" : "p1";
+    sim.next(); // stage 1
+    const before = sim.s.players[author]!.score;
+    sim.act({ type: "guess", playerId: other, text: sim.s.round!.item.text });
+    expect(sim.s.phase).toBe("reveal");
+    expect(sim.s.players[author]!.score - before).toBe(100 * sim.s.round!.multiplier);
+  });
+
   it("needs minimum players", () => {
     const sim = new Sim();
     sim.act({ type: "create", code: "BCDF" });

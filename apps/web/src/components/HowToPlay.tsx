@@ -29,7 +29,7 @@ export function HowToPlay() {
       <section className="space-y-2">
         <h3 className={`font-display text-lg font-bold ${ROUND_META.set.text}`}>Set it</h3>
         <p>
-          Before the game, everyone writes two short phrases about the group. They become puzzles. The author scores only if <b>some, but not all</b>, players crack it.
+          Before the game, everyone writes two short phrases about the group. They become puzzles. The author scores only if <b>some, but not all</b>, players crack it (playing as a duo: if your friend cracks it, but not instantly).
         </p>
       </section>
       <section className="panel-sm p-4 text-sm text-muted">
