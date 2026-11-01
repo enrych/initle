@@ -125,6 +125,13 @@ while (Date.now() < deadline) {
         await input.press("Enter");
       }
     }
+    if (rounds === 0) {
+      // Reconnect: a guest reloads mid-round and must land back in the same game with the same seat.
+      await guests[0].reload();
+      await guests[0].getByText(/Next reveal|Last chance|Round skipped|Leaderboard/).first().waitFor({ timeout: 15000 });
+      const seats = await host.locator('[aria-label="Players"] li').count();
+      if (seats !== 3) throw new Error(`expected 3 seats after reload, got ${seats}`);
+    }
     await snap(host, `play-${rounds}`);
     await snap(tv, `stage-play-${rounds}`);
     await host.getByRole("button", { name: "Menu" }).click();
