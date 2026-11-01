@@ -1,0 +1,26 @@
+# Decision log
+
+Every architectural choice, tradeoff and shortcut taken while building Initle v2, for review.
+Format: **decision**, why, and what it costs us. Newest at the bottom.
+
+| # | Area | Decision | Why | Cost / revisit when |
+|---|---|---|---|---|
+| 1 | Platform | Cloudflare Workers + one Durable Object per room (via `partyserver`) | One authoritative, stateful instance per room, built-in WebSockets, hibernation, scales per-room with no servers to run | Vendor lock-in. Game logic is a pure reducer in `packages/core` with no Cloudflare imports, so only the thin transport moves |
+| 2 | Repo | Rewrite from scratch on branch `v2-m1`; v1 code deleted (still in git history). v1 board and origin screenshot moved to `docs/` | v1 shapes (Express in-memory maps, REST join) don't fit the new design | None; history is preserved |
+| 3 | Monorepo | pnpm workspaces: `packages/core`, `apps/server`, `apps/web`; core consumed as TS source (no build step) | Simplest setup; Vite and Wrangler (esbuild) both compile TS directly | Core can't be published as-is; fine for an app |
+| 4 | Game logic | Pure `reduce(state, action, now)` with time passed in, randomness passed in (`seed`, `items`) | Deterministic, unit-testable without network or clocks; same code can run anywhere | Server must pick items/seed before dispatching |
+| 5 | Sync model | Server sends the full per-player `view` after every change (no diffs) | Reconnect is trivial, no drift bugs; views are 2–5 KB at 10 players | More bytes than diffs; irrelevant at party scale |
+| 6 | Timers | Phase deadlines stored in state; DO alarm fires `tick`; reducer catches up over missed deadlines | Survives DO hibernation/eviction; clients render countdown from `deadline` + clock offset | Alarm granularity (~ms–100ms) is fine for 8s stages |
+| 7 | Matching | Word-by-word lock-in; 5+ letter words allow 1 typo (OSA distance); short words exact; number words = digits; whole-phrase alias match | Progress is never wasted; typos don't punish; "cat" never matches "car" | Position-agnostic locking: guessing "the" locks one "the". Acceptable since initials already reveal it |
+| 8 | Fairness | Points by reveal stage (500→100), not milliseconds; +50 first solver; 20/word partial credit; final round ×2 | Typing speed matters less; trailing players can catch up | Two players solving in the same stage score the same (by design) |
+| 9 | Min players | 3 to start a Party game | Fake/Set rounds need at least two other players to be meaningful | Couples can't play Party; Daily covers solo |
+| 10 | Rounds | Round mix cycles Crack → Fake → Set; final round is always Set (×2) when phrases exist; Set rounds without enough prep phrases become Crack | Everyone gets knowledge, bluff and creativity turns; the finale is about the group itself | Fixed rotation; a host-configurable mix can come later |
+| 11 | Prep | 75s prep (spec said 60s) for 2 phrases; ends early when everyone's done; late joiners get prompts too | Playtesting intuition: two thoughtful phrases on a phone keyboard need more than 60s | Slightly longer pre-game |
+| 12 | Fake validation | A fake must match the initials (same word count, same first letters) and must not be the real answer; identical fakes are merged and share points | Keeps the initials constraint central (differentiates from generic bluffing games) | Strict: "12" must be answered with a word starting with "1" |
+| 13 | Moderation | Short built-in blocklist (English + common Hindi slurs) for names always, and for player text when Family mode is on; host can hide any fake and skip any round | Zero-latency, no external API, covers the obvious cases | Not ML-grade; misses creative spellings. Add a moderation API if public rooms launch |
+| 14 | Database | D1 with raw prepared SQL (5 tables), not Drizzle | Only ~8 queries; avoids an ORM layer and migration generator | Hand-written SQL; revisit if the schema grows |
+| 15 | Built-in packs | Six launch packs (≈270 items) live in code, not D1; only custom packs live in D1 | Packs ship with deploys, are type-checked, need no seeding, and load with zero latency | Content changes need a deploy |
+| 16 | Daily | Puzzle per day = fixed seeded shuffle of all built-in items (day 1 = 2026-11-01 UTC). Guesses are checked server-side and stateless (client sends locked words + stage) | Answer never ships to the browser; no per-user storage; archive works for any past day | A determined user can replay a day; stats can be inflated by scripted requests |
+| 17 | Room lifecycle | Rooms are created explicitly via `POST /api/rooms` (codes for unknown rooms are rejected); idle rooms are wiped 6h after the last activity; one live socket per player (newer tab wins) | Prevents typo-codes creating ghost rooms; frees codes; avoids double-acting players | A player with two tabs open loses the older one |
+| 18 | Identity | No accounts. A random token in localStorage identifies the seat; rejoining with the same token restores score and seat | Zero friction from link to lobby | Clearing storage = new player; no cross-device history |
+| 19 | Abuse limits | Guess rate limit in the reducer (3/5s). Pack creation and room creation have no app-level rate limit | Keep code simple; Cloudflare WAF rate-limiting rules cover HTTP endpoints at deploy time | Must configure a WAF rule before public launch (see README) |
