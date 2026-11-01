@@ -119,5 +119,16 @@ stage.ws.close();
 host.send({ type: "again" });
 await until(() => host.view.phase === "lobby", 5000, "again -> lobby");
 bots.forEach((b) => b.ws.close());
+// Rate limiting: hammer the pack endpoint with bad requests until the limiter answers 429.
+let limitedAt = -1;
+for (let i = 0; i < 40; i++) {
+  const r = await api("/api/packs", { method: "POST", body: "{}" });
+  if (r.status === 429) {
+    limitedAt = i;
+    break;
+  }
+}
+assert(limitedAt > 0, "rate limiter should kick in on POST /api/packs");
+console.log("rate limited after", limitedAt, "requests");
 console.log("SMOKE OK");
 process.exit(0);

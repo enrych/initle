@@ -81,7 +81,7 @@ pnpm e2e
    pnpm deploy
    ```
 
-4. Before a public launch, add Cloudflare WAF rate-limiting rules for `POST /api/rooms`, `POST /api/packs` and `POST /api/daily/guess` (for example, 20 requests/minute per IP). See decision #19 in `docs/DECISIONS.md`.
+Write endpoints are rate-limited per IP by the Workers Rate Limiting binding (`ratelimits` in `wrangler.jsonc`: 20/min for creating rooms and packs, 60/min for Daily guesses), so no dashboard rule is required. Tune the limits there.
 
 Durable Objects with SQLite storage, D1 and static assets all work on the Workers free plan for early traffic.
 

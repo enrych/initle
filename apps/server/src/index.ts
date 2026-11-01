@@ -39,6 +39,17 @@ function randomId(len: number): string {
   return [...crypto.getRandomValues(new Uint8Array(len))].map((b) => alphabet[b % alphabet.length]).join("");
 }
 
+/** Per-IP rate limit via the Workers Rate Limiting binding. Fails open if the binding errors. */
+async function limited(limiter: RateLimit, req: Request, scope: string): Promise<Response | null> {
+  const ip = req.headers.get("cf-connecting-ip") ?? "local";
+  try {
+    const { success } = await limiter.limit({ key: `${scope}:${ip}` });
+    return success ? null : error(429, "Too many requests. Take a breath and try again in a minute.");
+  } catch {
+    return null;
+  }
+}
+
 async function readJson(req: Request): Promise<unknown> {
   try {
     return await req.json();
@@ -197,21 +208,23 @@ export default {
 
     if (pathname.startsWith("/api/")) {
       try {
-        if (pathname === "/api/rooms" && req.method === "POST") return await createRoom(env);
+        if (pathname === "/api/rooms" && req.method === "POST") return (await limited(env.CREATE_LIMITER, req, "room")) ?? (await createRoom(env));
         const roomMatch = pathname.match(/^\/api\/rooms\/([A-Z]+)$/);
         if (roomMatch && req.method === "GET") return await roomStatus(env, roomMatch[1]!);
 
         if (pathname === "/api/packs" && req.method === "GET") return json({ packs: builtInSummaries() });
-        if (pathname === "/api/packs" && req.method === "POST") return await createPack(env, req);
+        if (pathname === "/api/packs" && req.method === "POST") return (await limited(env.CREATE_LIMITER, req, "pack")) ?? (await createPack(env, req));
         const packMatch = pathname.match(/^\/api\/packs\/([a-z0-9_]+)(\/report)?$/);
         if (packMatch && req.method === "GET" && !packMatch[2]) return await getPack(env, packMatch[1]!);
         if (packMatch && req.method === "POST" && packMatch[2]) {
+          const blocked = await limited(env.CREATE_LIMITER, req, "report");
+          if (blocked) return blocked;
           await reportPack(env.DB, packMatch[1]!);
           return json({ ok: true });
         }
 
         if (pathname === "/api/daily" && req.method === "GET") return getDaily(url);
-        if (pathname === "/api/daily/guess" && req.method === "POST") return await dailyGuess(env, req, ctx);
+        if (pathname === "/api/daily/guess" && req.method === "POST") return (await limited(env.GUESS_LIMITER, req, "daily")) ?? (await dailyGuess(env, req, ctx));
 
         if (pathname === "/api/health") return json({ ok: true, day: today() });
         return error(404, "Not found");
