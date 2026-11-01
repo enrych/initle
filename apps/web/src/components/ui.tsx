@@ -44,7 +44,7 @@ export function Card({ className, children }: { className?: string; children: Re
 }
 
 export const ROUND_META: Record<RoundType, { label: string; color: string; text: string; blurb: string; bg: string; border: string; emoji: string }> = {
-  crack: { label: "Crack it!", color: "#3f8cff", text: "text-crack", bg: "bg-crack", border: "border-crack", emoji: "🔓", blurb: "Decode the initials. More letters appear every 8 seconds." },
+  crack: { label: "Crack it!", color: "#3f8cff", text: "text-crack", bg: "bg-crack", border: "border-crack", emoji: "🔓", blurb: "Decode the initials. More letters appear every few seconds." },
   fake: { label: "Fake it!", color: "#ff4fa0", text: "text-fake", bg: "bg-fake", border: "border-fake", emoji: "🎭", blurb: "Write a believable fake that fits the letters. Then sniff out the real one." },
   set: { label: "Set it!", color: "#ffc531", text: "text-set", bg: "bg-set", border: "border-set", emoji: "✍️", blurb: "A puzzle written by someone in this room. Crack it!" },
 };

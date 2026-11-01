@@ -14,11 +14,26 @@ export const ClientMessage = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("settings"),
     packs: z.array(PackIdSchema).min(1).max(CONFIG.MAX_PACKS).optional(),
-    rounds: z.number().int().optional(),
+    rounds: z.number().int().min(1).max(50).optional(),
+    crack: z.boolean().optional(),
     fake: z.boolean().optional(),
     set: z.boolean().optional(),
     family: z.boolean().optional(),
+    speed: z.enum(["relaxed", "normal", "fast", "custom"]).optional(),
+    timers: z
+      .object({
+        stageMs: z.number().int().optional(),
+        prepMs: z.number().int().optional(),
+        writeMs: z.number().int().optional(),
+        voteMs: z.number().int().optional(),
+      })
+      .optional(),
   }),
+  z.object({ type: z.literal("pause") }),
+  z.object({ type: z.literal("resume") }),
+  z.object({ type: z.literal("next") }),
+  z.object({ type: z.literal("end") }),
+  z.object({ type: z.literal("host"), target: z.string().min(1).max(64) }),
   z.object({ type: z.literal("start") }),
   z.object({ type: z.literal("prep"), slot: z.number().int().min(0).max(5), text: z.string().max(200) }),
   z.object({ type: z.literal("guess"), text: z.string().trim().min(1).max(CONFIG.GUESS_MAX) }),

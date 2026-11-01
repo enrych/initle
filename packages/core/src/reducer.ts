@@ -1,4 +1,4 @@
-import { CONFIG, PROMPTS } from "./config";
+import { CONFIG, PROMPTS, SPEED_PRESETS, clampTimers } from "./config";
 import { checkName, checkPhrase, cleanText, containsBlocked } from "./moderation";
 import { hashString, mulberry32, shuffle } from "./random";
 import { evaluateGuess, fitsInitials, phraseKey, stripDiacritics } from "./text";
@@ -20,7 +20,16 @@ export function initialRoom(code = ""): Room {
     code,
     created: false,
     hostId: null,
-    settings: { packs: ["idioms", "movies"], rounds: CONFIG.DEFAULT_ROUNDS, fake: true, set: true, family: false },
+    settings: {
+      packs: ["idioms", "movies"],
+      rounds: CONFIG.DEFAULT_ROUNDS,
+      crack: true,
+      fake: true,
+      set: true,
+      family: false,
+      speed: "normal",
+      timers: { ...SPEED_PRESETS.normal },
+    },
     packNames: {},
     players: {},
     order: [],
@@ -35,8 +44,11 @@ export function initialRoom(code = ""): Room {
     gamesPlayed: 0,
     banned: [],
     ownerId: null,
+    paused: null,
   };
 }
+
+export type RoundTypes = { crack: boolean; fake: boolean; set: boolean };
 
 const emptyStats = (): Player["stats"] => ({ solves: 0, firstSolves: 0, fooled: 0, foundReal: 0, setPoints: 0, fastest: null });
 
@@ -94,29 +106,47 @@ function buildSetQueue(s: Room): SetEntry[] {
   return queue;
 }
 
-/** Decide the round types for the game. Final round is Set when possible. */
-export function buildPlan(rounds: number, fake: boolean, set: boolean, setAvailable: number): RoundType[] {
-  const cycle: RoundType[] = ["crack", ...(fake ? (["fake"] as const) : []), ...(set ? (["set"] as const) : [])];
+/**
+ * Decide the round types. Cycles through the enabled types (Crack → Fake → Set); the final round is
+ * Set when Set is on. Set rounds beyond the available prep phrases fall back to another enabled type.
+ */
+export function buildPlan(rounds: number, types: RoundTypes, setAvailable: number): RoundType[] {
+  const cycle: RoundType[] = (["crack", "fake", "set"] as const).filter((t) => types[t]);
+  if (cycle.length === 0) cycle.push("crack");
+  const fallback: RoundType = types.crack ? "crack" : types.fake ? "fake" : "crack";
   const plan: RoundType[] = Array.from({ length: rounds }, (_, i) => cycle[i % cycle.length]!);
-  if (set && rounds > 0) plan[rounds - 1] = "set";
-  // Not enough phrases? Convert Set rounds to Crack, keeping the final one if possible.
+  if (types.set && rounds > 0) plan[rounds - 1] = "set";
+  // Not enough phrases? Convert Set rounds, keeping the final one if possible.
   let available = setAvailable;
   for (let i = plan.length - 1; i >= 0; i--) {
     if (plan[i] !== "set") continue;
     if (available > 0) available--;
-    else plan[i] = "crack";
+    else plan[i] = fallback;
   }
   return plan;
 }
 
+const typesOf = (s: Room): RoundTypes => ({ crack: s.settings.crack, fake: s.settings.fake, set: s.settings.set });
+
+/** Drop Crack/Fake rounds the remaining puzzle pool can't cover. */
+function fitToPool(plan: RoundType[], poolSize: number): RoundType[] {
+  let used = 0;
+  return plan.filter((t) => t === "set" || used++ < poolSize);
+}
+
+/** Recompute the rounds still to come after settings change mid-game. Played rounds stay as they were. */
+function replan(s: Room) {
+  if (s.phase === "lobby" || s.phase === "prep" || s.phase === "final") return;
+  const started = s.round ? s.round.index + 1 : 0;
+  const total = Math.max(started, s.settings.rounds);
+  s.settings.rounds = Math.max(s.settings.rounds, started);
+  const tail = fitToPool(buildPlan(total - started, typesOf(s), s.setQueue.length), s.pool.length);
+  s.plan = [...s.plan.slice(0, started), ...tail];
+}
+
 function beginRounds(s: Room, now: number) {
   s.setQueue = s.settings.set ? buildSetQueue(s) : [];
-  const nonSet = s.pool.length;
-  let plan = buildPlan(s.settings.rounds, s.settings.fake, s.settings.set, s.setQueue.length);
-  // Not enough pack items: trim crack/fake rounds beyond the pool.
-  let used = 0;
-  plan = plan.filter((t) => t === "set" || used++ < nonSet);
-  s.plan = plan;
+  s.plan = fitToPool(buildPlan(s.settings.rounds, typesOf(s), s.setQueue.length), s.pool.length);
   s.round = null;
   startRound(s, now);
 }
@@ -187,7 +217,7 @@ function toVote(s: Room, now: number) {
   const all = shuffle([...merged.values(), { id: "", text: optionDisplay(r.item.text), authors: [], real: true, hidden: false }], mulberry32(s.seed + r.index * 7919));
   r.options = all.map((o, i) => ({ ...o, id: `o${i}` }));
   s.phase = "vote";
-  s.deadline = now + CONFIG.VOTE_MS;
+  s.deadline = now + s.settings.timers.voteMs;
 }
 
 function toReveal(s: Room, now: number) {
@@ -277,18 +307,18 @@ function advance(s: Room, now: number) {
         if (s.round!.type === "fake") {
           s.phase = "write";
           s.round!.startedAt = at;
-          s.deadline = at + CONFIG.WRITE_MS;
+          s.deadline = at + s.settings.timers.writeMs;
         } else {
           s.phase = "play";
           s.round!.startedAt = at;
           s.round!.stage = 0;
-          s.deadline = at + CONFIG.STAGE_MS;
+          s.deadline = at + s.settings.timers.stageMs;
         }
         break;
       case "play":
         if (s.round!.stage < CONFIG.STAGES - 1) {
           s.round!.stage++;
-          s.deadline = at + CONFIG.STAGE_MS;
+          s.deadline = at + s.settings.timers.stageMs;
         } else toReveal(s, at);
         break;
       case "write":
@@ -313,6 +343,20 @@ function advance(s: Room, now: number) {
   }
 }
 
+function pauseGame(s: Room, now: number, auto: boolean) {
+  s.paused = { since: now, remaining: s.deadline === null ? null : Math.max(0, s.deadline - now), auto };
+  s.deadline = null;
+}
+
+function resumeGame(s: Room, now: number) {
+  const p = s.paused;
+  if (!p) return;
+  s.paused = null;
+  if (p.remaining !== null) s.deadline = now + Math.max(1_000, p.remaining);
+  // Keep "solve speed" fair: the pause doesn't count as thinking time.
+  if (s.round) s.round.startedAt += now - p.since;
+}
+
 function resetForLobby(s: Room) {
   for (const id of [...s.order]) {
     const p = s.players[id]!;
@@ -329,6 +373,7 @@ function resetForLobby(s: Room) {
   s.pool = [];
   s.setQueue = [];
   s.deadline = null;
+  s.paused = null;
   s.prevScores = {};
   ensureHost(s);
 }
@@ -378,6 +423,7 @@ export function reduce(prev: Room, action: Action, now: number): ReduceResult {
       if (s.phase === "prep") assignPrompts(s, action.playerId);
       if (s.phase === "lobby" && action.playerId === s.ownerId) s.hostId = action.playerId;
       ensureHost(s);
+      if (s.paused?.auto) resumeGame(s, now);
       return done();
     }
 
@@ -386,19 +432,81 @@ export function reduce(prev: Room, action: Action, now: number): ReduceResult {
       if (!p) return { state: prev, events };
       p.connected = false;
       ensureHost(s);
-      checkEarlyEnd(s, now);
+      // Everyone gone (closed laptops, dinner): freeze the game instead of letting timers run out.
+      if (connectedIds(s).length === 0 && s.deadline !== null && !s.paused) pauseGame(s, now, true);
+      else checkEarlyEnd(s, now);
       return done();
     }
 
     case "settings": {
       if (s.hostId !== action.playerId) return fail(prev, action.playerId, "NOT_HOST", "Only the host can change settings.");
-      if (s.phase !== "lobby") return fail(prev, action.playerId, "BAD_PHASE", "Settings are locked during a game.");
-      if (action.packs && action.packs.length > 0) s.settings.packs = [...new Set(action.packs)].slice(0, CONFIG.MAX_PACKS);
+      if (s.phase === "final") return fail(prev, action.playerId, "BAD_PHASE", "The game is over. Play again to change settings.");
+      const inGame = s.phase !== "lobby";
+      if (action.packs && action.packs.length > 0) {
+        if (inGame && !action.pool) return fail(prev, action.playerId, "BAD_MESSAGE", "Packs couldn't be loaded.");
+        s.settings.packs = [...new Set(action.packs)].slice(0, CONFIG.MAX_PACKS);
+        if (inGame && action.pool) s.pool = [...action.pool];
+      }
       if (action.packNames) s.packNames = { ...s.packNames, ...action.packNames };
-      if (action.rounds && (CONFIG.ROUND_OPTIONS as readonly number[]).includes(action.rounds)) s.settings.rounds = action.rounds;
-      if (action.fake !== undefined) s.settings.fake = action.fake;
-      if (action.set !== undefined) s.settings.set = action.set;
+      if (action.rounds !== undefined && Number.isInteger(action.rounds))
+        s.settings.rounds = Math.min(CONFIG.ROUNDS_MAX, Math.max(CONFIG.ROUNDS_MIN, action.rounds));
+      const types = {
+        crack: action.crack ?? s.settings.crack,
+        fake: action.fake ?? s.settings.fake,
+        set: action.set ?? s.settings.set,
+      };
+      if (!types.crack && !types.fake && !types.set) return fail(prev, action.playerId, "BAD_MESSAGE", "Keep at least one round type.");
+      Object.assign(s.settings, types);
       if (action.family !== undefined) s.settings.family = action.family;
+      if (action.speed && action.speed !== "custom") {
+        s.settings.speed = action.speed;
+        s.settings.timers = { ...SPEED_PRESETS[action.speed] };
+      }
+      if (action.timers) {
+        s.settings.speed = "custom";
+        s.settings.timers = clampTimers(action.timers, s.settings.timers);
+      }
+      if (s.settings.family) s.pool = s.pool.filter((i) => !containsBlocked(i.text));
+      if (inGame) replan(s);
+      return done();
+    }
+
+    case "pause": {
+      if (s.hostId !== action.playerId) return fail(prev, action.playerId, "NOT_HOST", "Only the host can pause.");
+      if (s.paused || s.deadline === null) return { state: prev, events };
+      pauseGame(s, now, false);
+      return done();
+    }
+
+    case "resume": {
+      if (s.hostId !== action.playerId) return fail(prev, action.playerId, "NOT_HOST", "Only the host can resume.");
+      if (!s.paused) return { state: prev, events };
+      resumeGame(s, now);
+      return done();
+    }
+
+    case "next": {
+      if (s.hostId !== action.playerId) return fail(prev, action.playerId, "NOT_HOST", "Only the host can skip ahead.");
+      if (s.paused || s.deadline === null || !["prep", "intro", "reveal", "scoreboard"].includes(s.phase)) return { state: prev, events };
+      s.deadline = now;
+      advance(s, now);
+      return done();
+    }
+
+    case "end": {
+      if (s.hostId !== action.playerId) return fail(prev, action.playerId, "NOT_HOST", "Only the host can end the game.");
+      if (s.phase === "lobby" || s.phase === "final") return { state: prev, events };
+      s.paused = null;
+      toFinal(s);
+      return done();
+    }
+
+    case "host": {
+      if (s.hostId !== action.playerId) return fail(prev, action.playerId, "NOT_HOST", "Only the host can hand over hosting.");
+      const target = s.players[action.target];
+      if (!target || !target.connected || target.id === action.playerId) return { state: prev, events };
+      s.hostId = target.id;
+      s.ownerId = target.id;
       return done();
     }
 
@@ -422,10 +530,11 @@ export function reduce(prev: Room, action: Action, now: number): ReduceResult {
       s.pool = s.settings.family ? action.items.filter((i) => !containsBlocked(i.text)) : [...action.items];
       s.prevScores = {};
       s.round = null;
+      s.paused = null;
       if (s.settings.set) {
         for (const id of s.order) assignPrompts(s, id);
         s.phase = "prep";
-        s.deadline = now + CONFIG.PREP_MS;
+        s.deadline = now + s.settings.timers.prepMs;
       } else beginRounds(s, now);
       return done();
     }
@@ -433,6 +542,7 @@ export function reduce(prev: Room, action: Action, now: number): ReduceResult {
     case "prep": {
       const p = s.players[action.playerId];
       if (!p) return fail(prev, action.playerId, "UNKNOWN_PLAYER", "Join the room first.");
+      if (s.paused) return fail(prev, p.id, "BAD_PHASE", "The game is paused.");
       if (s.phase !== "prep") return fail(prev, p.id, "BAD_PHASE", "Prep is over.");
       const slot = p.prep[action.slot];
       if (!slot) return fail(prev, p.id, "BAD_MESSAGE", "Unknown prompt.");
@@ -448,6 +558,7 @@ export function reduce(prev: Room, action: Action, now: number): ReduceResult {
       const p = s.players[action.playerId];
       if (!p) return fail(prev, action.playerId, "UNKNOWN_PLAYER", "Join the room first.");
       const r: RoundState | null = s.round;
+      if (s.paused) return fail(prev, p.id, "BAD_PHASE", "The game is paused.");
       if (s.phase !== "play" || !r || r.author === p.id || r.solves[p.id]) return { state: prev, events };
       p.guessTimes = p.guessTimes.filter((t) => now - t < CONFIG.GUESS_WINDOW_MS);
       if (p.guessTimes.length >= CONFIG.GUESS_LIMIT) return fail(prev, p.id, "RATE_LIMITED", "Slow down: 3 guesses per 5 seconds.");
@@ -476,6 +587,7 @@ export function reduce(prev: Room, action: Action, now: number): ReduceResult {
       const p = s.players[action.playerId];
       if (!p) return fail(prev, action.playerId, "UNKNOWN_PLAYER", "Join the room first.");
       const r = s.round;
+      if (s.paused) return fail(prev, p.id, "BAD_PHASE", "The game is paused.");
       if (s.phase !== "write" || !r) return fail(prev, p.id, "BAD_PHASE", "Writing time is over.");
       p.guessTimes = p.guessTimes.filter((t) => now - t < CONFIG.GUESS_WINDOW_MS);
       if (p.guessTimes.length >= CONFIG.GUESS_LIMIT) return fail(prev, p.id, "RATE_LIMITED", "Slow down: 3 tries per 5 seconds.");
@@ -493,6 +605,7 @@ export function reduce(prev: Room, action: Action, now: number): ReduceResult {
       const p = s.players[action.playerId];
       if (!p) return fail(prev, action.playerId, "UNKNOWN_PLAYER", "Join the room first.");
       const r = s.round;
+      if (s.paused) return fail(prev, p.id, "BAD_PHASE", "The game is paused.");
       if (s.phase !== "vote" || !r?.options) return fail(prev, p.id, "BAD_PHASE", "Voting is over.");
       const option = r.options.find((o) => o.id === action.option);
       if (!option) return fail(prev, p.id, "BAD_MESSAGE", "Unknown answer.");
@@ -534,6 +647,7 @@ export function reduce(prev: Room, action: Action, now: number): ReduceResult {
       const r = s.round;
       if (!r || !["intro", "play", "write", "vote"].includes(s.phase)) return { state: prev, events };
       r.skipped = true;
+      s.paused = null;
       toReveal(s, now);
       return done();
     }

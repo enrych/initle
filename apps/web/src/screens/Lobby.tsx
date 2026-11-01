@@ -1,37 +1,20 @@
-import { CONFIG, type PackSummary } from "@initle/core/client";
+import { CONFIG } from "@initle/core/client";
 import { motion } from "motion/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Avatar } from "../components/Players";
 import { QR } from "../components/QR";
 import { toast } from "../components/Toasts";
-import { Button, Card, Modal, Segmented, Toggle } from "../components/ui";
+import { Button, Card, Modal } from "../components/ui";
+import { GameSettings } from "../components/GameSettings";
 import { api } from "../lib/api";
 import { cn } from "../lib/cn";
 import { useRoom } from "../lib/room";
 import { inviteUrl, shareOrCopy } from "../lib/share";
 import { sfx } from "../lib/sound";
 
-let packCache: PackSummary[] | null = null;
-
-function usePacks() {
-  const [packs, setPacks] = useState<PackSummary[]>(packCache ?? []);
-  useEffect(() => {
-    if (packCache) return;
-    api
-      .packs()
-      .then((r) => {
-        packCache = r.packs;
-        setPacks(r.packs);
-      })
-      .catch(() => {});
-  }, []);
-  return packs;
-}
-
 export function LobbyScreen() {
   const { view, send } = useRoom();
   const isHost = view.hostId === view.me;
-  const builtIn = usePacks();
   const [showQr, setShowQr] = useState(false);
   const [addPack, setAddPack] = useState(false);
   const host = view.players.find((p) => p.host);
@@ -43,20 +26,6 @@ export function LobbyScreen() {
     if (view.players.length > prevCount.current) sfx.join();
     prevCount.current = view.players.length;
   }, [view.players.length]);
-
-  const custom = useMemo(
-    () => view.settings.packs.filter((id) => id.startsWith("c_")).map((id) => ({ id, name: view.packNames[id] ?? "Custom pack", custom: true, count: 0 })),
-    [view.settings.packs, view.packNames],
-  );
-  const allPacks = [...builtIn, ...custom];
-
-  const togglePack = (id: string) => {
-    const has = view.settings.packs.includes(id);
-    if (has && view.settings.packs.length === 1) return toast("Keep at least one pack", "bad");
-    const next = has ? view.settings.packs.filter((p) => p !== id) : [...view.settings.packs, id];
-    if (next.length > CONFIG.MAX_PACKS) return toast(`Up to ${CONFIG.MAX_PACKS} packs`, "bad");
-    send({ type: "settings", packs: next });
-  };
 
   const invite = async () => {
     const res = await shareOrCopy({ title: "Join my Initle room", text: `Join my Initle game! Code ${view.code}`, url: inviteUrl(view.code) });
@@ -125,45 +94,9 @@ export function LobbyScreen() {
         </ul>
       </section>
 
-      <Card className="space-y-4">
-        <div>
-          <h2 className="mb-2 font-display text-lg font-bold">Packs</h2>
-          <div className="flex flex-wrap gap-2">
-            {allPacks.map((p) => {
-              const on = view.settings.packs.includes(p.id);
-              return (
-                <button
-                  key={p.id}
-                  onClick={() => isHost && togglePack(p.id)}
-                  disabled={!isHost}
-                  aria-pressed={on}
-                  className={cn(
-                    "rounded-xl px-3.5 py-2 text-sm font-extrabold transition",
-                    on ? "btn3d bg-set text-outline" : "border-[3px] border-outline bg-bg-deep text-muted hover:text-ink",
-                    !isHost && !on && "hidden",
-                  )}
-                >
-                  {p.custom && "★ "}
-                  {p.name}
-                </button>
-              );
-            })}
-            {isHost && (
-              <button onClick={() => setAddPack(true)} className="rounded-xl border-[3px] border-dashed border-cream/30 px-3.5 py-2 text-sm font-extrabold text-muted hover:text-ink">
-                + Custom pack
-              </button>
-            )}
-          </div>
-        </div>
-        <div>
-          <h2 className="mb-2 font-display text-lg font-bold">Rounds</h2>
-          <Segmented label="Rounds" value={view.settings.rounds} options={CONFIG.ROUND_OPTIONS} disabled={!isHost} onChange={(rounds) => send({ type: "settings", rounds })} />
-        </div>
-        <div className="divide-y divide-line">
-          <Toggle label="Fake it rounds" description="Write fakes, find the real one" checked={view.settings.fake} disabled={!isHost} onChange={(fake) => send({ type: "settings", fake })} />
-          <Toggle label="Set it rounds" description="Puzzles written by your group" checked={view.settings.set} disabled={!isHost} onChange={(set) => send({ type: "settings", set })} />
-          <Toggle label="Family mode" description="Filter rude words in answers" checked={view.settings.family} disabled={!isHost} onChange={(family) => send({ type: "settings", family })} />
-        </div>
+      <Card>
+        <h2 className="mb-4 font-display text-2xl">Game settings</h2>
+        <GameSettings view={view} send={send} canEdit={isHost} onAddPack={() => setAddPack(true)} />
       </Card>
 
       <div className="sticky bottom-14 z-10 mt-auto pt-2">

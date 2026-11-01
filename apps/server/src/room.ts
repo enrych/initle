@@ -24,6 +24,8 @@ type ConnState = { role: "player"; playerId: string } | { role: "stage" } | { ro
 /** Rooms with nobody connected are wiped after this long. */
 const IDLE_TTL_MS = 6 * 60 * 60 * 1000;
 const STORAGE_KEY = "room";
+/** Puzzles drawn per game: enough for the maximum round count plus headroom for mid-game changes. */
+const POOL_SIZE = CONFIG.ROUNDS_MAX * 2;
 
 /**
  * One Durable Object per room code. Holds the authoritative game state, runs the pure reducer from
@@ -40,7 +42,8 @@ export class Room extends Server<Env> {
     const saved = await this.ctx.storage.get<{ room: RoomState; gameStartedAt: number }>(STORAGE_KEY);
     if (saved) {
       // Merge with defaults so rooms saved by an older version gain new fields.
-      this.state = { ...initialRoom(this.name), ...saved.room };
+      const defaults = initialRoom(this.name);
+      this.state = { ...defaults, ...saved.room, settings: { ...defaults.settings, ...saved.room.settings } };
       this.gameStartedAt = saved.gameStartedAt;
     } else {
       this.state = initialRoom(this.name);
@@ -115,18 +118,24 @@ export class Room extends Server<Env> {
     switch (msg.type) {
       case "settings": {
         let packNames: Record<string, string> | undefined;
+        let pool: Item[] | undefined;
         if (msg.packs) {
           const resolved = await this.resolvePacks(msg.packs);
           if (!resolved) return this.sendTo(conn, { type: "error", code: "UNKNOWN_PACK", message: "One of those packs doesn't exist." });
           packNames = resolved.names;
+          // Mid-game pack changes need fresh puzzles, minus ones already played this game.
+          if (this.state.phase !== "lobby") {
+            const played = new Set([...(this.state.round ? [this.state.round.item.id] : [])]);
+            pool = pickItems(resolved.items.filter((i) => !played.has(i.id)), POOL_SIZE);
+          }
         }
-        return void (await this.apply({ ...msg, playerId, packNames }, conn));
+        return void (await this.apply({ ...msg, playerId, packNames, pool }, conn));
       }
       case "start": {
         if (this.state.hostId !== playerId) return this.sendTo(conn, { type: "error", code: "NOT_HOST", message: "Only the host can start." });
         const resolved = await this.resolvePacks(this.state.settings.packs);
         const pool = resolved?.items ?? [];
-        const items = pickItems(pool, CONFIG.ROUND_OPTIONS.at(-1)!);
+        const items = pickItems(pool, POOL_SIZE);
         const seed = crypto.getRandomValues(new Uint32Array(1))[0]!;
         const ok = await this.apply({ type: "start", playerId, items, seed }, conn);
         if (ok) {
@@ -145,7 +154,13 @@ export class Room extends Server<Env> {
         return void (await this.apply({ ...msg, playerId } as Action, conn));
       case "skip":
       case "again":
+      case "pause":
+      case "resume":
+      case "next":
+      case "end":
         return void (await this.apply({ type: msg.type, playerId }, conn));
+      case "host":
+        return void (await this.apply({ type: "host", playerId, target: msg.target }, conn));
     }
   }
 

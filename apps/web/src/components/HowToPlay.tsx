@@ -12,7 +12,7 @@ export function HowToPlay() {
       </p>
       <section className="space-y-2">
         <h3 className={`font-display text-lg font-bold ${ROUND_META.crack.text}`}>Crack it</h3>
-        <p>Guess the phrase. Every 8 seconds more is revealed: word lengths, a hint, then letters. Solve earlier for more points.</p>
+        <p>Guess the phrase. Every few seconds (the host picks the speed) more is revealed: word lengths, a hint, then letters. Solve earlier for more points.</p>
         <div className="space-y-3 rounded-2xl bg-bg-deep p-4">
           <Board tiles={example(0)} type="crack" size="sm" />
           <Board tiles={example(3)} type="crack" size="sm" />

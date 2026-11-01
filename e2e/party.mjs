@@ -60,7 +60,7 @@ await tv.getByText("Join on your phone at").waitFor();
 await snap(tv, "stage-lobby");
 
 // Host settings: 5 rounds, all round types
-await host.getByRole("radio", { name: "5" }).click();
+await host.getByRole("button", { name: "5", exact: true }).click();
 await snap(host, "lobby");
 await host.getByRole("button", { name: "Start game" }).click();
 
@@ -126,6 +126,21 @@ while (Date.now() < deadline) {
       }
     }
     if (rounds === 0) {
+      // Pause: everyone sees it, guesses are blocked, resume brings the round back.
+      await host.getByRole("button", { name: "Pause game" }).click();
+      await guests[1].getByRole("dialog", { name: "Game paused" }).waitFor();
+      await tv.getByRole("dialog", { name: "Game paused" }).waitFor();
+      await snap(host, "paused");
+      await snap(tv, "stage-paused");
+      await host.getByRole("dialog", { name: "Game paused" }).getByRole("button", { name: "▶ Resume" }).click();
+      await guests[1].getByRole("dialog", { name: "Game paused" }).waitFor({ state: "detached" });
+      // Change settings mid-game: slower speed, one more round.
+      await host.getByRole("button", { name: "Menu" }).click();
+      await host.getByRole("button", { name: "Game settings" }).click();
+      await host.getByRole("radio", { name: /Relaxed/ }).click();
+      await host.getByRole("button", { name: "More rounds" }).click();
+      await snap(host, "settings-midgame");
+      await host.getByRole("button", { name: "Close" }).click();
       // Reconnect: a guest reloads mid-round and must land back in the same game with the same seat.
       await guests[0].reload();
       await guests[0].getByText(/Next reveal|Last chance|Round skipped|Leaderboard/).first().waitFor({ timeout: 15000 });

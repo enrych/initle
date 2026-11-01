@@ -180,6 +180,7 @@ export function toView(s: Room, me: string, now: number): View {
     settings: s.settings,
     packNames: s.packNames,
     deadline: s.deadline,
+    paused: s.paused,
     serverNow: now,
     players,
     prep,

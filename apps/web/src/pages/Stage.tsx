@@ -14,7 +14,8 @@ import { Awards, Podium } from "../screens/Final";
 import { StagePips } from "../screens/Play";
 import { RevealBody } from "../screens/Reveal";
 import { Standings } from "../screens/Scoreboard";
-import { phaseTotal } from "./RoomPage";
+import { PausedOverlay, phaseTotal } from "./RoomPage";
+import { RoomContext } from "../lib/room";
 
 /** Read-only big-screen view for a TV or laptop. Phones are the controllers. */
 export function StagePage() {
@@ -179,6 +180,11 @@ export function StagePage() {
       <main className="flex flex-1 items-center justify-center py-8">{content}</main>
       {conn.status !== "open" && <p className="text-center text-xl text-set">Reconnecting…</p>}
       <ReactionLayer subscribe={conn.onEvent} avatarOf={(id) => view.players.find((p) => p.id === id)?.avatar ?? ""} big />
+      {view.paused && (
+        <RoomContext.Provider value={conn}>
+          <PausedOverlay big />
+        </RoomContext.Provider>
+      )}
     </div>
   );
 }

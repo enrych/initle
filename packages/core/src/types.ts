@@ -70,10 +70,17 @@ export type RoundState = {
 export type Settings = {
   packs: PackId[];
   rounds: number;
+  /** Which round types are in the mix (at least one is always on). */
+  crack: boolean;
   fake: boolean;
   set: boolean;
   family: boolean;
+  speed: import("./config").Speed;
+  timers: import("./config").Timers;
 };
+
+/** Set while the host has paused: how much time the current phase had left. */
+export type Paused = { since: number; remaining: number | null; auto: boolean };
 
 export type SetEntry = { author: string; prompt: number; text: string };
 
@@ -101,6 +108,7 @@ export type Room = {
   banned: string[];
   /** First player to join; gets host back if they return while in the lobby. */
   ownerId: string | null;
+  paused: Paused | null;
 };
 
 export type Action =
@@ -113,10 +121,20 @@ export type Action =
       packs?: PackId[];
       packNames?: Record<PackId, string>;
       rounds?: number;
+      crack?: boolean;
       fake?: boolean;
       set?: boolean;
       family?: boolean;
+      speed?: import("./config").Speed;
+      timers?: Partial<import("./config").Timers>;
+      /** Server-resolved puzzles when packs change mid-game. */
+      pool?: Item[];
     }
+  | { type: "pause"; playerId: string }
+  | { type: "resume"; playerId: string }
+  | { type: "next"; playerId: string }
+  | { type: "end"; playerId: string }
+  | { type: "host"; playerId: string; target: string }
   | { type: "start"; playerId: string; items: Item[]; seed: number }
   | { type: "prep"; playerId: string; slot: number; text: string }
   | { type: "guess"; playerId: string; text: string }
@@ -195,6 +213,7 @@ export type View = {
   settings: Settings;
   packNames: Record<PackId, string>;
   deadline: number | null;
+  paused: Paused | null;
   serverNow: number;
   players: ViewPlayer[];
   prep: null | { prompts: { prompt: string; text: string | null }[] };
