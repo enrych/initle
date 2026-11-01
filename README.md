@@ -61,29 +61,18 @@ pnpm e2e
 
 ## Deploy (Cloudflare)
 
-1. Create the database:
+Deploys run from GitHub Actions (`.github/workflows/deploy.yml`): every push to `main` builds, tests, creates the D1 database if it doesn't exist, applies migrations, deploys the Worker and checks the live site. The URL appears on the workflow run and in the repo's **production** environment.
 
-   ```bash
-   pnpm --filter server exec wrangler d1 create initle
-   ```
+One-time setup, in the GitHub repo → Settings → Secrets and variables → Actions:
 
-   Put the returned `database_id` into `apps/server/wrangler.jsonc`.
+| Secret | Value |
+| --- | --- |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare dashboard → Workers & Pages → Account ID (right sidebar) |
+| `CLOUDFLARE_API_TOKEN` | Cloudflare dashboard → My Profile → API Tokens → Create Token → "Edit Cloudflare Workers" template, plus **D1: Edit** |
 
-2. Apply migrations:
+To deploy manually, use the **Run workflow** button on the Deploy workflow (Actions tab). If your Cloudflare account has never used Workers, open Workers & Pages once to pick a `workers.dev` subdomain before the first deploy.
 
-   ```bash
-   pnpm db:migrate:remote
-   ```
-
-3. Build and deploy:
-
-   ```bash
-   pnpm deploy
-   ```
-
-Write endpoints are rate-limited per IP by the Workers Rate Limiting binding (`ratelimits` in `wrangler.jsonc`: 20/min for creating rooms and packs, 60/min for Daily guesses), so no dashboard rule is required. Tune the limits there.
-
-Durable Objects with SQLite storage, D1 and static assets all work on the Workers free plan for early traffic.
+Write endpoints are rate-limited per IP by the Workers Rate Limiting binding (`ratelimits` in `wrangler.jsonc`: 20/min for creating rooms and packs, 60/min for Daily guesses). Durable Objects with SQLite storage, D1 and static assets all work on the Workers free plan for early traffic.
 
 ## Content
 

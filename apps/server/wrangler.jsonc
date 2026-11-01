@@ -23,7 +23,7 @@
     {
       "binding": "DB",
       "database_name": "initle",
-      // Replace with the real id from `wrangler d1 create initle` before deploying.
+      // Filled in at deploy time by scripts/ensure-d1.mjs (creates the database if needed).
       "database_id": "00000000-0000-0000-0000-000000000000",
       "migrations_dir": "migrations"
     }
