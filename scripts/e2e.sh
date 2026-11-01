@@ -15,4 +15,4 @@ WRANGLER=$!
 trap 'kill -- -$WRANGLER 2>/dev/null || true' EXIT
 for _ in $(seq 1 60); do curl -sf "http://localhost:$PORT/api/health" >/dev/null && break; sleep 1; done
 node apps/server/scripts/smoke.mjs "http://localhost:$PORT"
-NODE_PATH="${NODE_PATH:-$(npm root -g)}" node e2e/party.mjs "http://localhost:$PORT" "${SHOTS:-}"
+NODE_PATH="$(npm root -g)${NODE_PATH:+:$NODE_PATH}" node e2e/party.mjs "http://localhost:$PORT" "${SHOTS:-}"
