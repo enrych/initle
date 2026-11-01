@@ -35,14 +35,15 @@ export function Toaster() {
         {list.map((t) => (
           <motion.div
             key={t.id}
-            initial={{ y: -20, opacity: 0, scale: 0.95 }}
-            animate={{ y: 0, opacity: 1, scale: 1 }}
+            initial={{ y: -30, opacity: 0, scale: 0.6, rotate: -4 }}
+            animate={{ y: 0, opacity: 1, scale: 1, rotate: 0 }}
+            transition={{ type: "spring", stiffness: 500, damping: 22 }}
             exit={{ y: -10, opacity: 0 }}
             className={cn(
-              "rounded-2xl px-4 py-2.5 text-sm font-semibold shadow-xl",
-              t.tone === "good" && "bg-good text-bg",
+              "rounded-2xl border-[3px] border-outline px-4 py-2 font-display text-lg tracking-wide shadow-[0_4px_0_var(--color-outline)]",
+              t.tone === "good" && "bg-good text-outline",
               t.tone === "bad" && "bg-bad text-white",
-              t.tone === "info" && "bg-ink text-bg",
+              t.tone === "info" && "bg-cream text-outline",
             )}
           >
             {t.text}

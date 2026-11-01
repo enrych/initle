@@ -2,10 +2,24 @@ import type { ViewPlayer } from "@initle/core/client";
 import { motion } from "motion/react";
 import { cn } from "../lib/cn";
 
+const AVATAR_BG = ["#3f8cff", "#ff4fa0", "#ffc531", "#3ee07f", "#9b6bff", "#ff8a3d", "#2fd1d1", "#ff6b6b"];
+
+function hashName(name: string): number {
+  let h = 0;
+  for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return h;
+}
+
 export function Avatar({ player, size = "md", dim }: { player: Pick<ViewPlayer, "avatar" | "name">; size?: "sm" | "md" | "lg" | "xl"; dim?: boolean }) {
-  const s = size === "xl" ? "h-20 w-20 text-5xl" : size === "lg" ? "h-14 w-14 text-3xl" : size === "md" ? "h-10 w-10 text-2xl" : "h-7 w-7 text-base";
+  const s =
+    size === "xl" ? "h-24 w-24 text-6xl border-4" : size === "lg" ? "h-16 w-16 text-4xl border-[3px]" : size === "md" ? "h-12 w-12 text-[1.7rem] border-[3px]" : "h-8 w-8 text-lg border-2";
   return (
-    <span className={cn("inline-flex shrink-0 items-center justify-center rounded-full bg-surface-2", s, dim && "opacity-40 grayscale")} aria-label={player.name} role="img">
+    <span
+      className={cn("inline-flex shrink-0 items-center justify-center rounded-full border-outline shadow-[0_3px_0_var(--color-outline)]", s, dim && "opacity-40 grayscale")}
+      style={{ background: AVATAR_BG[hashName(player.name) % AVATAR_BG.length] }}
+      aria-label={player.name}
+      role="img"
+    >
       {player.avatar}
     </span>
   );
@@ -22,14 +36,14 @@ export function PlayerStrip({ players, me, wordCount, exclude }: { players: View
             <div className="relative">
               <Avatar player={p} dim={!p.connected} />
               {p.ready && (
-                <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute -right-1 -bottom-1 flex h-5 w-5 items-center justify-center rounded-full bg-good text-xs font-bold text-bg">
+                <motion.span initial={{ scale: 0, rotate: -45 }} animate={{ scale: 1, rotate: 0 }} className="absolute -right-1.5 -bottom-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-outline bg-good text-xs font-black text-outline">
                   ✓
                 </motion.span>
               )}
             </div>
-            <span className={cn("max-w-16 truncate text-xs", p.id === me ? "font-bold text-ink" : "text-muted")}>{p.id === me ? "You" : p.name}</span>
+            <span className={cn("max-w-16 truncate text-xs font-extrabold", p.id === me ? "text-set" : "text-muted")}>{p.id === me ? "You" : p.name}</span>
             {wordCount !== undefined && wordCount > 0 && !p.ready && (
-              <span className="h-1 w-10 overflow-hidden rounded-full bg-line" aria-label={`${p.progress} of ${wordCount} words`}>
+              <span className="h-2 w-11 overflow-hidden rounded-full border-2 border-outline bg-bg-deep" aria-label={`${p.progress} of ${wordCount} words`}>
                 <span className="block h-full bg-good transition-all" style={{ width: `${(p.progress / wordCount) * 100}%` }} />
               </span>
             )}

@@ -53,7 +53,7 @@ export function ReactionBar({ onReact }: { onReact: (emoji: (typeof REACTIONS)[n
             last.current = Date.now();
             onReact(r);
           }}
-          className="flex h-11 w-11 items-center justify-center rounded-full text-2xl transition hover:bg-surface-2 active:scale-90"
+          className="flex h-12 w-12 items-center justify-center rounded-2xl text-[1.7rem] transition hover:-translate-y-1 hover:bg-white/10 active:scale-75"
           aria-label={`React ${r}`}
         >
           {r}

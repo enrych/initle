@@ -22,13 +22,13 @@ function PromptCard({ index, prompt, saved }: { index: number; prompt: string; s
   return (
     <Card className={cn("space-y-3 transition", saved && !editing && "border-good/50")}>
       <div className="flex items-start gap-3">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-set font-display font-bold text-bg">{index + 1}</span>
+        <span className="flex h-9 w-9 shrink-0 -rotate-6 items-center justify-center rounded-xl border-[3px] border-outline bg-set font-display text-lg text-outline shadow-[0_3px_0_var(--color-outline)]">{index + 1}</span>
         <p className="pt-1 font-semibold leading-snug">{prompt}</p>
       </div>
       {saved && !editing ? (
-        <div className="flex items-center justify-between gap-3 rounded-2xl bg-good/10 px-4 py-3">
+        <div className="flex items-center justify-between gap-3 rounded-2xl border-[3px] border-outline bg-good px-4 py-3 font-extrabold text-outline">
           <span className="font-medium">“{saved}”</span>
-          <button onClick={() => setEditing(true)} className="text-sm text-muted underline">
+          <button onClick={() => setEditing(true)} className="text-sm underline">
             Edit
           </button>
         </div>
@@ -48,7 +48,7 @@ function PromptCard({ index, prompt, saved }: { index: number; prompt: string; s
             placeholder="2–8 words"
             aria-label={prompt}
             enterKeyHint="done"
-            className="h-12 w-full rounded-2xl border border-line bg-surface-2 px-4 outline-none focus:border-set"
+            className="h-12 w-full rounded-2xl field px-4"
           />
           <div className="flex items-center justify-between gap-2">
             <InitialsPreview text={text} />

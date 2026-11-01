@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { Board } from "../components/Board";
 import { PlayerStrip } from "../components/Players";
 import { toast } from "../components/Toasts";
-import { Button, ROUND_META } from "../components/ui";
+import { Button, ROUND_META, Stamp } from "../components/ui";
+import { confetti } from "../lib/confetti";
 import { useCountdown } from "../lib/clock";
 import { cn } from "../lib/cn";
 import { useGameEvent, usePlayer, useRoom } from "../lib/room";
@@ -16,7 +17,7 @@ export function StagePips({ stage, color }: { stage: number; color: string }) {
   return (
     <div className="flex items-center justify-center gap-1.5" aria-label={`Reveal stage ${stage + 1} of ${CONFIG.STAGES}: ${STAGE_LABELS[stage] ?? ""}`}>
       {Array.from({ length: CONFIG.STAGES }, (_, i) => (
-        <span key={i} className={cn("h-2 rounded-full transition-all", i === stage ? "w-8" : "w-2", i > stage && "bg-line")} style={i <= stage ? { background: color } : undefined} />
+        <span key={i} className={cn("h-3.5 rounded-full border-2 border-outline transition-all", i === stage ? "w-10" : "w-3.5", i > stage && "bg-bg-deep")} style={i <= stage ? { background: color } : undefined} />
       ))}
     </div>
   );
@@ -49,6 +50,7 @@ export function PlayScreen() {
     if (e.type === "guess-result") {
       if (e.solved) {
         sfx.solve();
+        confetti({ count: 90 });
         setBurst(e.points);
         setText("");
       } else if (e.newlyLocked > 0) {
@@ -92,12 +94,12 @@ export function PlayScreen() {
         </p>
       </div>
 
-      <div className="flex min-h-40 flex-col items-center justify-center gap-4 rounded-3xl border border-line bg-surface/60 px-3 py-6">
+      <div className="flex min-h-40 flex-col items-center justify-center gap-4 panel px-3 py-6">
         <Board tiles={r.board} type={r.type} />
         <AnimatePresence>
           {r.hint && (
-            <motion.p initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="rounded-full bg-surface-2 px-4 py-1.5 text-center text-sm">
-              <span className="text-muted">Hint: </span>
+            <motion.p initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="rounded-full border-[3px] border-outline bg-cream font-bold text-outline shadow-[0_3px_0_var(--color-outline)] px-4 py-1.5 text-center text-sm">
+              <span className="opacity-60">Hint: </span>
               {r.hint}
             </motion.p>
           )}
@@ -108,16 +110,16 @@ export function PlayScreen() {
       </div>
 
       {isAuthor ? (
-        <div className="rounded-3xl border border-set/40 bg-set/10 p-5 text-center">
-          <p className="font-display text-lg font-bold text-set">This is your puzzle</p>
-          <p className="mt-1 text-sm">
+        <div className="panel bg-set p-5 text-center text-outline">
+          <p className="font-display text-2xl">This is your puzzle!</p>
+          <p className="mt-1 text-sm font-bold">
             You get {CONFIG.SET_AUTHOR_POINTS * r.multiplier} per solver, but only if <b>some, not all</b> crack it. {solvedCount} solved so far.
           </p>
         </div>
       ) : solved ? (
-        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="rounded-3xl bg-good/15 p-5 text-center">
-          <p className="font-display text-2xl font-bold text-good">Cracked it! +{r.mySolve!.points}</p>
-          <p className="mt-1 text-sm text-muted">Solved at stage {r.mySolve!.stage + 1}. Watch the others sweat.</p>
+        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="panel bg-good p-5 text-center text-outline">
+          <p className="font-display text-3xl">Cracked it! +{r.mySolve!.points}</p>
+          <p className="mt-1 text-sm font-bold opacity-75">Solved at stage {r.mySolve!.stage + 1}. Watch the others sweat.</p>
         </motion.div>
       ) : (
         <form onSubmit={submit} className={cn("flex gap-2", shake && "animate-shake")} key={shake}>
@@ -130,7 +132,7 @@ export function PlayScreen() {
             autoComplete="off"
             autoCorrect="on"
             enterKeyHint="send"
-            className="h-14 w-full rounded-2xl border-2 border-line bg-surface-2 px-4 text-lg outline-none focus:border-ink"
+            className="field h-16 w-full px-4 text-lg"
           />
           <Button type="submit" variant={r.type} size="lg" disabled={!text.trim()} aria-label="Send guess">
             ↵
@@ -152,9 +154,12 @@ export function PlayScreen() {
             exit={{ opacity: 0 }}
             onAnimationComplete={() => setTimeout(() => setBurst(null), 700)}
           >
-            <motion.span initial={{ scale: 0.3 }} animate={{ scale: [0.3, 1.3, 1] }} className="font-display text-7xl font-bold text-good drop-shadow-2xl">
-              +{burst}
-            </motion.span>
+            <div className="flex flex-col items-center gap-3">
+              <Stamp>CRACKED!</Stamp>
+              <motion.span initial={{ scale: 0.3, y: 20 }} animate={{ scale: [0.3, 1.25, 1], y: 0 }} transition={{ delay: 0.15 }} className="font-display text-7xl text-good text-outline text-shadow-hard">
+                +{burst}
+              </motion.span>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

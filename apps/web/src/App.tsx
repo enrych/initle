@@ -1,7 +1,7 @@
 import { Suspense, lazy } from "react";
 import { Link, Outlet, createBrowserRouter } from "react-router";
 import { Toaster } from "./components/Toasts";
-import { Button, Logo, Spinner } from "./components/ui";
+import { Backdrop, Button, Logo, Spinner } from "./components/ui";
 import { Home } from "./pages/Home";
 
 const RoomPage = lazy(() => import("./pages/RoomPage").then((m) => ({ default: m.RoomPage })));
@@ -21,6 +21,7 @@ function Loading() {
 function Layout() {
   return (
     <>
+      <Backdrop />
       <Suspense fallback={<Loading />}>
         <Outlet />
       </Suspense>

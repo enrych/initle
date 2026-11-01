@@ -12,5 +12,5 @@ export function QR({ value, size = 180, className }: { value: string; size?: num
       alive = false;
     };
   }, [value, size]);
-  return src ? <img src={src} width={size} height={size} alt={`QR code for ${value}`} className={className ?? "rounded-2xl"} /> : <div style={{ width: size, height: size }} className="rounded-2xl bg-surface-2" />;
+  return src ? <img src={src} width={size} height={size} alt={`QR code for ${value}`} className={className ?? "rounded-2xl border-4 border-outline shadow-[0_5px_0_var(--color-outline)]"} /> : <div style={{ width: size, height: size }} className="rounded-2xl bg-surface-2" />;
 }

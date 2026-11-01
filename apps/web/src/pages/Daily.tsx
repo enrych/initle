@@ -10,6 +10,7 @@ import { api, type DailyPuzzle, type DailyStats } from "../lib/api";
 import { cn } from "../lib/cn";
 import { dailyShareText, shareOrCopy } from "../lib/share";
 import { sfx } from "../lib/sound";
+import { confetti } from "../lib/confetti";
 import { store } from "../lib/storage";
 
 type Attempt = { guess: string; newlyLocked: number };
@@ -100,7 +101,10 @@ export function DailyPage() {
       const res = await api.dailyGuess({ day: st.day, guess: text.trim(), locked: st.locked, stage: st.stage });
       const attempt = { guess: text.trim(), newlyLocked: res.newlyLocked };
       setText("");
-      if (res.solved) sfx.solve();
+      if (res.solved) {
+        sfx.solve();
+        confetti();
+      }
       else if (res.newlyLocked > 0) sfx.lock();
       else {
         sfx.miss();
@@ -156,7 +160,7 @@ export function DailyPage() {
           <Logo size="sm" />
         </Link>
         <div className="text-right text-sm text-muted">
-          <div className="font-display text-lg font-bold text-ink">Daily #{puzzle.day}</div>
+          <div className="font-display text-2xl text-ink text-shadow-hard">Daily #{puzzle.day}</div>
           {puzzle.date}
         </div>
       </header>
@@ -164,7 +168,7 @@ export function DailyPage() {
       <Card className="flex flex-col items-center gap-4 py-7">
         {!st.done && <StagePips stage={st.stage} color="#4f8cff" />}
         <Board tiles={st.board} type="daily" />
-        {st.hint && <p className="rounded-full bg-surface-2 px-4 py-1.5 text-sm">Hint: {st.hint}</p>}
+        {st.hint && <p className="rounded-full border-[3px] border-outline bg-cream font-bold text-outline shadow-[0_3px_0_var(--color-outline)] px-4 py-1.5 text-sm">Hint: {st.hint}</p>}
         <p className="text-xs text-muted">
           {puzzle.wordCount} words · {puzzle.pack}
         </p>
@@ -185,7 +189,7 @@ export function DailyPage() {
               autoComplete="off"
               enterKeyHint="send"
               autoFocus
-              className="h-14 w-full rounded-2xl border-2 border-line bg-surface-2 px-4 text-lg outline-none focus:border-crack"
+              className="h-14 w-full rounded-2xl field px-4 text-lg"
             />
             <Button type="submit" variant="crack" size="lg" disabled={busy || !text.trim()} aria-label="Send guess">
               {busy ? <Spinner /> : "↵"}
@@ -199,7 +203,7 @@ export function DailyPage() {
       {st.attempts.length > 0 && (
         <ol className="space-y-1.5" aria-label="Your guesses">
           {st.attempts.map((a, i) => (
-            <li key={i} className="flex items-center justify-between rounded-xl bg-surface px-3 py-2 text-sm">
+            <li key={i} className="panel-sm flex items-center justify-between px-3 py-2 text-sm">
               <span className="truncate">
                 <span className="mr-2 text-muted">{i + 1}.</span>
                 {a.guess}
@@ -243,12 +247,12 @@ function DailyResult({ puzzle, st, record, countdown }: { puzzle: DailyPuzzle; s
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
       <div className="text-center">
-        <p className={cn("font-display text-3xl font-bold", st.solved ? "text-good" : "text-bad")}>{st.solved ? `Solved in ${st.stage + 1}!` : "So close."}</p>
+        <p className={cn("text-4xl text-shadow-hard", st.solved ? "text-good" : "text-bad")}>{st.solved ? `Solved in ${st.stage + 1}!` : "So close."}</p>
         <p className="mt-1 text-lg">
           The answer: <b>{st.answer}</b>
         </p>
       </div>
-      <pre className="rounded-2xl bg-surface p-4 text-center font-sans text-lg">{dailyShareText(puzzle.day, solvedStage, puzzle.stages)}</pre>
+      <pre className="panel p-4 text-center font-sans text-xl">{dailyShareText(puzzle.day, solvedStage, puzzle.stages)}</pre>
       <Button size="lg" variant="crack" className="w-full" onClick={share}>
         Share result
       </Button>
@@ -261,7 +265,7 @@ function DailyResult({ puzzle, st, record, countdown }: { puzzle: DailyPuzzle; s
             ["Streak", record.streak],
             ["Best", record.best],
           ].map(([k, v]) => (
-            <div key={k} className="rounded-2xl bg-surface p-3">
+            <div key={k} className="panel-sm p-3">
               <div className="font-display text-2xl font-bold">{v}</div>
               <div className="text-xs text-muted">{k}</div>
             </div>
@@ -278,7 +282,7 @@ function DailyResult({ puzzle, st, record, countdown }: { puzzle: DailyPuzzle; s
               <div key={i} className="flex items-center gap-2 text-sm">
                 <span className="w-4 text-right text-muted">{i < 5 ? i + 1 : "X"}</span>
                 <div className="h-6 flex-1">
-                  <div className={cn("flex h-full min-w-6 items-center justify-end rounded-md px-2 text-xs font-bold", mine ? "bg-crack text-white" : "bg-surface-2")} style={{ width: `${(n / max) * 100}%` }}>
+                  <div className={cn("flex h-full min-w-6 items-center justify-end rounded-md px-2 text-xs font-bold", mine ? "border-2 border-outline bg-crack text-white" : "border-2 border-outline bg-surface-2")} style={{ width: `${(n / max) * 100}%` }}>
                     {n}
                   </div>
                 </div>

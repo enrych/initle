@@ -62,21 +62,27 @@ export async function renderPodiumCard(view: View, awards: Award[]): Promise<Blo
   await document.fonts?.ready;
 
   const bg = c.createLinearGradient(0, 0, W, H);
-  bg.addColorStop(0, "#151a3d");
-  bg.addColorStop(1, "#0b0d1a");
+  bg.addColorStop(0, "#3d1b84");
+  bg.addColorStop(1, "#1a0940");
   c.fillStyle = bg;
   c.fillRect(0, 0, W, H);
 
   // Logo tiles
   const letters = "INITLE";
-  const colors = ["#4f8cff", "#4f8cff", "#ff4fa3", "#ff4fa3", "#ffb020", "#ffb020"];
+  const colors = ["#3f8cff", "#3f8cff", "#ff4fa0", "#ff4fa0", "#ffc531", "#ffc531"];
   letters.split("").forEach((ch, i) => {
     const x = 170 + i * 125;
+    roundRect(c, x, 88, 105, 120, 18);
+    c.fillStyle = "#160731";
+    c.fill();
     roundRect(c, x, 80, 105, 120, 18);
     c.fillStyle = colors[i]!;
     c.fill();
-    c.fillStyle = i >= 4 ? "#0b0d1a" : "#ffffff";
-    c.font = "700 76px 'Space Grotesk', sans-serif";
+    c.lineWidth = 6;
+    c.strokeStyle = "#160731";
+    c.stroke();
+    c.fillStyle = i >= 4 ? "#160731" : "#ffffff";
+    c.font = "400 80px 'Lilita One', sans-serif";
     c.textAlign = "center";
     c.fillText(ch, x + 52, 168);
   });
@@ -96,18 +102,21 @@ export async function renderPodiumCard(view: View, awards: Award[]): Promise<Blo
     const h = heights[slot]!;
     const y = 820 - h;
     roundRect(c, x, y, 250, h, 24);
-    c.fillStyle = "#1e2346";
-    c.fill();
     c.fillStyle = medal[slot]!;
-    c.font = "700 64px 'Space Grotesk', sans-serif";
+    c.fill();
+    c.lineWidth = 6;
+    c.strokeStyle = "#160731";
+    c.stroke();
+    c.fillStyle = "#160731";
+    c.font = "400 64px 'Lilita One', sans-serif";
     c.fillText(String(row.rank), x + 125, y + 80);
     c.font = "120px serif";
     c.fillText(p?.avatar ?? "?", x + 125, y - 40);
-    c.fillStyle = "#f4f5ff";
-    c.font = "700 40px Inter, sans-serif";
+    c.fillStyle = "#160731";
+    c.font = "800 40px Nunito, sans-serif";
     c.fillText((p?.name ?? "").slice(0, 12), x + 125, y + 140);
-    c.fillStyle = "#9aa0c7";
-    c.font = "600 34px Inter, sans-serif";
+    c.fillStyle = "#160731";
+    c.font = "800 34px Nunito, sans-serif";
     c.fillText(`${row.score} pts`, x + 125, y + 190);
   }
 
@@ -116,19 +125,21 @@ export async function renderPodiumCard(view: View, awards: Award[]): Promise<Blo
   for (const a of awards.slice(0, 3)) {
     const p = byId.get(a.playerId);
     roundRect(c, 120, y, 840, 104, 20);
-    c.fillStyle = "#151933";
+    c.fillStyle = "#ffc531";
     c.fill();
-    c.fillStyle = "#ffb020";
-    c.font = "700 34px 'Space Grotesk', sans-serif";
+    c.lineWidth = 5;
+    c.strokeStyle = "#160731";
+    c.stroke();
+    c.fillStyle = "#160731";
+    c.font = "400 38px 'Lilita One', sans-serif";
     c.fillText(a.title, 156, y + 46);
-    c.fillStyle = "#f4f5ff";
-    c.font = "500 30px Inter, sans-serif";
+    c.font = "700 30px Nunito, sans-serif";
     c.fillText(`${p?.avatar ?? ""} ${p?.name ?? ""} · ${a.detail}`, 156, y + 86);
     y += 124;
   }
 
-  c.fillStyle = "#9aa0c7";
-  c.font = "500 32px Inter, sans-serif";
+  c.fillStyle = "#cdbcff";
+  c.font = "800 32px Nunito, sans-serif";
   c.textAlign = "center";
   c.fillText(`Play at ${location.host}`, W / 2, H - 50);
 

@@ -64,7 +64,7 @@ export function PackNewPage() {
           <p className="text-muted">
             {created.count} puzzles{created.skipped ? ` (${created.skipped} lines skipped: they need 2–12 words)` : ""}.
           </p>
-          <button onClick={async () => (await copyText(packUrl(created.id))) && toast("Link copied", "good")} className="w-full rounded-2xl bg-surface-2 px-4 py-3 font-mono text-sm break-all">
+          <button onClick={async () => (await copyText(packUrl(created.id))) && toast("Link copied", "good")} className="field w-full px-4 py-3 font-mono text-sm break-all">
             {packUrl(created.id)}
           </button>
         </Card>
@@ -101,7 +101,7 @@ export function PackNewPage() {
           onChange={(e) => setName(e.target.value.slice(0, 40))}
           placeholder="Pack name, e.g. Office Life"
           aria-label="Pack name"
-          className="h-12 w-full rounded-2xl border border-line bg-surface-2 px-4 font-semibold outline-none focus:border-ink"
+          className="h-12 w-full rounded-2xl field px-4"
         />
         <textarea
           value={text}
@@ -109,7 +109,7 @@ export function PackNewPage() {
           placeholder={EXAMPLE}
           aria-label="Phrases, one per line"
           rows={10}
-          className="w-full rounded-2xl border border-line bg-surface-2 p-4 font-mono text-sm leading-relaxed outline-none focus:border-ink"
+          className="w-full rounded-2xl field p-4 font-mono text-sm leading-relaxed"
         />
         <p className="text-sm text-muted">
           Optional hint after a <code className="text-ink">|</code>. Each phrase needs 2–12 words. {lines.length} lines so far (minimum 5).

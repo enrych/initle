@@ -44,11 +44,18 @@ export function RevealBody({ view, big }: { view: View; big?: boolean }) {
   return (
     <div className={cn("flex flex-col gap-5", big && "gap-8")}>
       <div className="text-center">
-        <p className={cn("text-sm font-semibold uppercase tracking-widest", meta.text)}>{rev.skipped ? "Round skipped" : "The answer"}</p>
-        <h1 className={cn("mt-2 font-display font-bold leading-tight", big ? "text-6xl" : "text-3xl")}>
+        <p className={cn("inline-block -rotate-2 rounded-lg border-[3px] border-outline px-3 py-0.5 font-display tracking-wide shadow-[0_3px_0_var(--color-outline)]", meta.bg, r.type === "set" ? "text-outline" : "text-white", big ? "text-2xl" : "text-base")}>
+          {rev.skipped ? "Round skipped" : "The answer was…"}
+        </p>
+        <motion.h1
+          initial={{ scale: 0.8, rotate: 2 }}
+          animate={{ scale: 1, rotate: -1 }}
+          transition={{ type: "spring", stiffness: 400, damping: 15 }}
+          className={cn("panel mt-3 bg-cream px-4 py-4 leading-tight text-outline", big ? "text-6xl" : "text-3xl")}
+        >
           <TypeOut text={rev.answer} />
-        </h1>
-        <p className={cn("mt-2 text-muted", big && "text-2xl")}>{r.type === "set" && author ? `${author.avatar} ${author.name} wrote this · “${rev.hint}”` : rev.hint}</p>
+        </motion.h1>
+        <p className={cn("mt-3 font-bold text-muted", big && "text-2xl")}>{r.type === "set" && author ? `${author.avatar} ${author.name} wrote this · “${rev.hint}”` : rev.hint}</p>
       </div>
 
       {ordered && !rev.skipped ? (
@@ -59,14 +66,14 @@ export function RevealBody({ view, big }: { view: View; big?: boolean }) {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.8 + i * 1.1 }}
-              className={cn("rounded-2xl border-2 p-4", o.real ? "border-good bg-good/10" : "border-line bg-surface", o.hidden && "opacity-50")}
+              className={cn("rounded-2xl border-[3px] border-outline p-4 shadow-[0_4px_0_var(--color-outline)]", o.real ? "bg-good text-outline" : "bg-surface", o.hidden && "opacity-50")}
             >
               <div className="flex items-start justify-between gap-3">
                 <span className={cn("font-semibold", big ? "text-3xl" : "text-lg")}>{o.text}</span>
-                {o.real && <span className="shrink-0 rounded-full bg-good px-2.5 py-1 text-xs font-bold text-bg">REAL</span>}
+                {o.real && <span className="shrink-0 rotate-6 rounded-lg border-[3px] border-outline bg-cream px-2 py-0.5 font-display text-lg text-outline">REAL!</span>}
                 {o.hidden && <span className="shrink-0 text-xs text-muted">hidden</span>}
               </div>
-              <div className={cn("mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-muted", big ? "text-xl" : "text-sm")}>
+              <div className={cn("mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-bold", o.real ? "text-outline/75" : "text-muted", big ? "text-xl" : "text-sm")}>
                 {!o.real && (
                   <span>
                     by {o.authors.map((id) => `${byId.get(id)?.avatar ?? ""} ${byId.get(id)?.name ?? "?"}`).join(" & ")}
@@ -110,7 +117,7 @@ export function RevealBody({ view, big }: { view: View; big?: boolean }) {
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: (ordered ? 0.8 + ordered.length * 1.1 : 0.6) + i * 0.05 }}
-                className="flex items-center gap-3 rounded-2xl bg-surface px-3 py-2"
+                className="panel-sm flex items-center gap-3 px-3 py-2"
               >
                 <Avatar player={p} size={big ? "lg" : "md"} />
                 <span className={cn("flex-1 truncate font-semibold", big && "text-2xl")}>{p.id === view.me ? "You" : p.name}</span>

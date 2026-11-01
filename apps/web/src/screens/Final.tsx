@@ -8,6 +8,7 @@ import { cn } from "../lib/cn";
 import { useRoom } from "../lib/room";
 import { renderPodiumCard, shareImage } from "../lib/share";
 import { sfx } from "../lib/sound";
+import { confetti } from "../lib/confetti";
 import type { View } from "@initle/core/client";
 
 export function Podium({ view, big }: { view: View; big?: boolean }) {
@@ -27,7 +28,7 @@ export function Podium({ view, big }: { view: View; big?: boolean }) {
             <Avatar player={p} size={big ? "xl" : "lg"} />
             <span className={cn("max-w-full truncate font-semibold", big && "text-2xl")}>{p.id === view.me ? "You" : p.name}</span>
             <span className={cn("font-display font-bold tabular-nums text-muted", big && "text-xl")}>{row.score}</span>
-            <div className={cn("flex w-full items-start justify-center rounded-t-2xl pt-2 font-display text-3xl font-bold text-bg", heights[i], medal[i])} aria-label={`Rank ${row.rank}`}>
+            <div className={cn("flex w-full items-start justify-center rounded-t-2xl border-[3px] border-b-0 border-outline pt-2 font-display text-4xl text-outline", heights[i], medal[i])} aria-label={`Rank ${row.rank}`}>
               {row.rank}
             </div>
           </motion.div>
@@ -46,11 +47,11 @@ export function Awards({ view, big }: { view: View; big?: boolean }) {
       {awards.map((a, i) => {
         const p = byId.get(a.playerId);
         return (
-          <motion.li key={a.title} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 2 + i * 0.25 }} className="flex items-center gap-3 rounded-2xl border border-set/30 bg-set/10 px-4 py-3">
+          <motion.li key={a.title} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 2 + i * 0.25 }} className="panel-sm flex items-center gap-3 bg-set px-4 py-3 text-outline">
             {p && <Avatar player={p} size={big ? "lg" : "md"} />}
             <div className="min-w-0">
-              <div className={cn("font-display font-bold text-set", big && "text-2xl")}>{a.title}</div>
-              <div className={cn("truncate text-sm text-muted", big && "text-lg")}>
+              <div className={cn("font-display text-xl", big && "text-3xl")}>{a.title}</div>
+              <div className={cn("truncate text-sm font-bold opacity-75", big && "text-lg")}>
                 {p?.name} · {a.detail}
               </div>
             </div>
@@ -66,7 +67,11 @@ export function FinalScreen() {
   const isHost = view.hostId === view.me;
   const [sharing, setSharing] = useState(false);
   const me = view.standings?.find((s) => s.id === view.me);
-  useEffect(() => sfx.fanfare(), []);
+  useEffect(() => {
+    sfx.fanfare();
+    const t = setTimeout(() => confetti({ count: 180, originY: 0.45, spread: 1.3 }), 1400);
+    return () => clearTimeout(t);
+  }, []);
 
   const share = async () => {
     setSharing(true);
@@ -85,7 +90,7 @@ export function FinalScreen() {
   return (
     <div className="flex flex-1 flex-col gap-6">
       <div className="text-center">
-        <h1 className="font-display text-3xl font-bold">Game over!</h1>
+        <h1 className="text-5xl text-shadow-hard">Game over!</h1>
         {me && <p className="mt-1 text-muted">You finished #{me.rank} with {me.score} points</p>}
       </div>
       <Podium view={view} />
@@ -109,7 +114,7 @@ export function FinalScreen() {
             Play again
           </Button>
         ) : (
-          <p className="rounded-2xl bg-surface-2 p-3 text-center text-muted">Waiting for the host to start another game…</p>
+          <p className="panel-sm p-3 text-center font-bold text-muted">Waiting for the host to start another game…</p>
         )}
         <div className="flex gap-2">
           <Button variant="secondary" className="flex-1" onClick={share} disabled={sharing}>

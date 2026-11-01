@@ -4,8 +4,8 @@
   "description": "The party game of initials.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0b0d1a",
-  "theme_color": "#0b0d1a",
+  "background_color": "#2a1160",
+  "theme_color": "#2a1160",
   "icons": [
     {
       "src": "/icon.svg",

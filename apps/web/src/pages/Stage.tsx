@@ -91,7 +91,7 @@ export function StagePage() {
               {ROUND_META[r!.type].label}
             </motion.h1>
             <p className="max-w-3xl text-4xl">{ROUND_META[r!.type].blurb}</p>
-            {r!.multiplier > 1 && <p className="rounded-full bg-set px-8 py-3 font-display text-4xl font-bold text-bg">Final round · double points</p>}
+            {r!.multiplier > 1 && <p className="rounded-full bg-set px-8 py-3 font-display text-4xl font-bold text-outline">Final round · double points</p>}
           </div>
         );
       case "play":
@@ -100,7 +100,7 @@ export function StagePage() {
           <div className="flex w-full flex-col items-center gap-10">
             {view.phase === "play" ? <div className="scale-150"><StagePips stage={r!.stage} color={ROUND_META[r!.type].color} /></div> : <h1 className="font-display text-6xl font-bold text-fake">Write a fake that fits</h1>}
             <Board tiles={r!.board} type={r!.type} size="lg" />
-            {r!.hint && <p className="rounded-full bg-surface-2 px-8 py-3 text-4xl">Hint: {r!.hint}</p>}
+            {r!.hint && <p className="rounded-full border-[3px] border-outline bg-cream font-bold text-outline shadow-[0_3px_0_var(--color-outline)] px-8 py-3 text-4xl">Hint: {r!.hint}</p>}
             <p className="text-3xl text-muted">
               {r!.wordCount} words · {r!.pack}
               {r!.author && ` · puzzle by ${view.players.find((p) => p.id === r!.author)?.name ?? "?"}`}
@@ -117,7 +117,7 @@ export function StagePage() {
             <Board tiles={r!.board} type="fake" size="md" />
             <ol className="grid w-full grid-cols-2 gap-4">
               {(r!.options ?? []).map((o, i) => (
-                <motion.li key={o.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.15 }} className="rounded-3xl border-2 border-line bg-surface p-6 text-4xl font-semibold">
+                <motion.li key={o.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.15 }} className="panel p-6 text-4xl font-extrabold">
                   {o.text}
                 </motion.li>
               ))}
@@ -160,13 +160,13 @@ export function StagePage() {
             <span className="text-muted">
               Round {r.index + 1}/{r.total}
             </span>
-            <RoundBadge type={r.type} className="px-5 py-2 text-lg" />
+            <RoundBadge type={r.type} className="px-5 py-1.5 text-2xl" />
           </div>
         )}
         <div className="ml-auto flex items-center gap-6">
           {view.deadline && <TimerRing deadline={view.deadline} offset={conn.offset} total={phaseTotal(view)} color={r ? ROUND_META[r.type].color : undefined} size={96} />}
           {view.phase !== "lobby" && (
-            <div className="flex items-center gap-3 rounded-2xl bg-surface p-2 pr-4">
+            <div className="panel-sm flex items-center gap-3 p-2 pr-4">
               <QR value={url} size={72} className="rounded-lg" />
               <div className="text-lg leading-tight text-muted">
                 {host}

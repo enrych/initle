@@ -31,12 +31,12 @@ export function Standings({ view, big }: { view: View; big?: boolean }) {
         if (!row || !p) return null;
         const score = counted ? row.score : row.score - row.delta;
         return (
-          <motion.li layout transition={{ type: "spring", stiffness: 300, damping: 30 }} key={id} className={cn("flex items-center gap-3 rounded-2xl border bg-surface px-3 py-2.5", id === view.me ? "border-ink/50" : "border-line", big && "py-4")}>
-            <span className={cn("w-7 text-center font-display font-bold text-muted", big && "text-2xl")}>{row.rank}</span>
+          <motion.li layout transition={{ type: "spring", stiffness: 300, damping: 30 }} key={id} className={cn("panel-sm flex items-center gap-3 px-3 py-2.5", row.rank === 1 && row.score > 0 && "bg-set text-outline", id === view.me && "ring-4 ring-cream/70", big && "py-4")}>
+            <span className={cn("w-8 text-center font-display text-2xl", big && "text-4xl")}>{row.rank === 1 && row.score > 0 ? "👑" : row.rank}</span>
             <Avatar player={p} size={big ? "lg" : "md"} dim={!p.connected} />
             <span className={cn("flex-1 truncate font-semibold", big && "text-2xl")}>{id === view.me ? "You" : p.name}</span>
-            {row.delta > 0 && <span className={cn("font-semibold text-good", big ? "text-xl" : "text-sm")}>+{row.delta}</span>}
-            <span className={cn("w-16 text-right font-display font-bold tabular-nums", big ? "text-3xl" : "text-xl")}>{score}</span>
+            {row.delta > 0 && <span className={cn("rounded-lg border-2 border-outline bg-good px-1.5 font-display text-outline", big ? "text-2xl" : "text-sm")}>+{row.delta}</span>}
+            <span className={cn("w-16 text-right font-display tabular-nums", big ? "text-4xl" : "text-2xl")}>{score}</span>
           </motion.li>
         );
       })}
@@ -50,7 +50,7 @@ export function ScoreboardScreen() {
   const next = r.index + 2 === r.total ? "Final round next, worth double!" : `Round ${r.index + 2} of ${r.total} next`;
   return (
     <div className="flex flex-1 flex-col gap-4">
-      <h1 className="text-center font-display text-2xl font-bold">Leaderboard</h1>
+      <h1 className="text-center text-4xl text-shadow-hard">Leaderboard</h1>
       <Standings view={view} />
       <p className="mt-auto text-center text-muted">{next}</p>
     </div>

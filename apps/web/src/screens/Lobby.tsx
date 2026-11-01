@@ -99,7 +99,7 @@ export function LobbyScreen() {
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               key={p.id}
-              className={cn("flex items-center gap-2 rounded-2xl border bg-surface p-2.5", p.id === view.me ? "border-ink/40" : "border-line")}
+              className={cn("panel-sm flex items-center gap-2 p-2.5", p.id === view.me && "bg-surface-2")}
             >
               <Avatar player={p} dim={!p.connected} />
               <div className="min-w-0 flex-1">
@@ -118,7 +118,7 @@ export function LobbyScreen() {
             </motion.li>
           ))}
           {Array.from({ length: missing }, (_, i) => (
-            <li key={`empty${i}`} className="flex items-center justify-center rounded-2xl border-2 border-dashed border-line p-2.5 text-sm text-muted">
+            <li key={`empty${i}`} className="flex items-center justify-center rounded-[1.1rem] border-[3px] border-dashed border-cream/25 p-2.5 text-sm font-bold text-muted">
               Waiting…
             </li>
           ))}
@@ -138,8 +138,8 @@ export function LobbyScreen() {
                   disabled={!isHost}
                   aria-pressed={on}
                   className={cn(
-                    "rounded-full border px-3.5 py-2 text-sm font-semibold transition",
-                    on ? "border-ink bg-ink text-bg" : "border-line text-muted hover:text-ink",
+                    "rounded-xl px-3.5 py-2 text-sm font-extrabold transition",
+                    on ? "btn3d bg-set text-outline" : "border-[3px] border-outline bg-bg-deep text-muted hover:text-ink",
                     !isHost && !on && "hidden",
                   )}
                 >
@@ -149,7 +149,7 @@ export function LobbyScreen() {
               );
             })}
             {isHost && (
-              <button onClick={() => setAddPack(true)} className="rounded-full border border-dashed border-line px-3.5 py-2 text-sm font-semibold text-muted hover:text-ink">
+              <button onClick={() => setAddPack(true)} className="rounded-xl border-[3px] border-dashed border-cream/30 px-3.5 py-2 text-sm font-extrabold text-muted hover:text-ink">
                 + Custom pack
               </button>
             )}
@@ -172,7 +172,7 @@ export function LobbyScreen() {
             {missing > 0 ? `Need ${missing} more player${missing > 1 ? "s" : ""}` : "Start game"}
           </Button>
         ) : (
-          <div className="rounded-2xl bg-surface-2 p-4 text-center text-muted">
+          <div className="panel-sm p-4 text-center font-bold text-muted">
             Waiting for {host?.name ?? "the host"} to start{missing > 0 ? ` (needs ${missing} more)` : ""}…
           </div>
         )}
@@ -219,7 +219,7 @@ function AddPackModal({ open, onClose, onAdd }: { open: boolean; onClose: () => 
           onChange={(e) => setValue(e.target.value)}
           placeholder="Pack link or code"
           aria-label="Pack link or code"
-          className="h-12 w-full rounded-2xl border border-line bg-surface-2 px-4 outline-none focus:border-ink"
+          className="h-12 w-full rounded-2xl field px-4"
         />
         <Button type="submit" className="w-full" disabled={busy}>
           Add pack

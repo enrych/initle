@@ -245,13 +245,13 @@ function RoomShell() {
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col px-4">
-      <header className="sticky top-0 z-30 -mx-4 flex items-center gap-2 border-b border-line/60 bg-bg/85 px-4 py-2.5 backdrop-blur">
+      <header className="sticky top-0 z-30 -mx-4 flex items-center gap-2 border-b-[3px] border-outline bg-bg/90 px-4 py-2.5 backdrop-blur">
         <button
           onClick={async () => {
             const res = await shareOrCopy({ title: "Join my Initle room", text: `Join my Initle game! Code ${view.code}`, url: inviteUrl(view.code) });
             if (res === "copied") toast("Invite link copied", "good");
           }}
-          className="rounded-xl bg-surface-2 px-3 py-1.5 font-display text-lg font-bold tracking-[0.2em] transition hover:bg-line"
+          className="btn3d rounded-xl bg-cream px-3 py-1 font-display text-xl tracking-[0.2em] text-outline"
           aria-label={`Room code ${view.code}. Tap to share the invite link`}
         >
           {view.code}
@@ -269,24 +269,24 @@ function RoomShell() {
           {view.deadline && <TimerRing deadline={view.deadline} offset={offset} total={phaseTotal(view)} color={color} size={40} />}
           <button
             onClick={() => sound.setMuted(!muted)}
-            className="flex h-10 w-10 items-center justify-center rounded-full text-xl hover:bg-surface-2"
+            className="btn3d flex h-10 w-10 items-center justify-center rounded-xl bg-surface-2 text-lg"
             aria-label={muted ? "Unmute sounds" : "Mute sounds"}
           >
             {muted ? "🔇" : "🔊"}
           </button>
-          <button onClick={() => setMenu(true)} className="flex h-10 w-10 items-center justify-center rounded-full text-xl hover:bg-surface-2" aria-label="Menu">
+          <button onClick={() => setMenu(true)} className="btn3d flex h-10 w-10 items-center justify-center rounded-xl bg-surface-2 font-display text-xl" aria-label="Menu">
             ⋯
           </button>
         </div>
       </header>
 
-      {status !== "open" && <div className="mt-2 rounded-xl bg-set/15 px-3 py-2 text-center text-sm text-set">Connection lost. Reconnecting…</div>}
+      {status !== "open" && <div className="panel-sm mt-2 bg-set px-3 py-2 text-center text-sm font-extrabold text-outline">Connection lost. Reconnecting…</div>}
 
       <main className="flex flex-1 flex-col py-4">{screen}</main>
       <PhaseAnnouncer />
 
       {showReactions && (
-        <div className="sticky bottom-0 -mx-4 border-t border-line/40 bg-bg/80 px-4 py-1 backdrop-blur safe-bottom" hidden={view.phase === "play" || view.phase === "vote"}>
+        <div className="sticky bottom-0 -mx-4 border-t-[3px] border-outline bg-bg/90 px-4 py-1 backdrop-blur safe-bottom" hidden={view.phase === "play" || view.phase === "vote"}>
           <ReactionBar onReact={(emoji) => send({ type: "react", emoji })} />
         </div>
       )}
@@ -343,8 +343,8 @@ function RoomShell() {
 export function SectionTitle({ children, sub }: { children: React.ReactNode; sub?: React.ReactNode }) {
   return (
     <div className="mb-4 text-center">
-      <h1 className="font-display text-2xl font-bold">{children}</h1>
-      {sub && <p className="mt-1 text-muted">{sub}</p>}
+      <h1 className="text-4xl text-shadow-hard">{children}</h1>
+      {sub && <p className="mt-1 font-bold text-muted">{sub}</p>}
     </div>
   );
 }

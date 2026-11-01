@@ -1,19 +1,32 @@
 @import "tailwindcss";
 
+/*
+ * Initle brand: "Tile & Ink".
+ * Chunky letter tiles on a grape-purple stage, thick ink outlines, hard offset shadows,
+ * springy motion. Everything should feel like a physical board game you can press.
+ */
+
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Space Grotesk", "Inter", ui-sans-serif, system-ui, sans-serif;
-  --color-bg: #0b0d1a;
-  --color-surface: #151933;
-  --color-surface-2: #1e2346;
-  --color-line: #2c3263;
-  --color-ink: #f4f5ff;
-  --color-muted: #9aa0c7;
-  --color-crack: #4f8cff;
-  --color-fake: #ff4fa3;
-  --color-set: #ffb020;
-  --color-good: #2fd67b;
-  --color-bad: #ff5d5d;
+  --font-sans: "Nunito", ui-rounded, system-ui, sans-serif;
+  --font-display: "Lilita One", "Nunito", ui-rounded, system-ui, sans-serif;
+
+  --color-bg: #2a1160;
+  --color-bg-deep: #1a0940;
+  --color-surface: #3d1b84;
+  --color-surface-2: #4f27a3;
+  --color-line: #160731; /* ink outline */
+  --color-ink: #ffffff;
+  --color-muted: #cdbcff;
+  --color-cream: #fff3d6;
+  --color-cream-dark: #ecd3a0;
+  --color-crack: #3f8cff;
+  --color-fake: #ff4fa0;
+  --color-set: #ffc531;
+  --color-good: #3ee07f;
+  --color-bad: #ff5b5b;
+  --color-outline: #160731;
+
+  --radius-tile: 0.6rem;
 }
 
 :root {
@@ -24,19 +37,28 @@ html,
 body,
 #root {
   min-height: 100%;
-  background: var(--color-bg);
   color: var(--color-ink);
 }
 
 body {
   font-family: var(--font-sans);
+  font-weight: 600;
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
-  background:
-    radial-gradient(1200px 600px at 10% -10%, rgb(79 140 255 / 0.14), transparent 60%),
-    radial-gradient(900px 500px at 110% 10%, rgb(255 79 163 / 0.1), transparent 60%),
-    var(--color-bg);
+  background-color: var(--color-bg);
+  background-image:
+    radial-gradient(circle at 1px 1px, rgb(255 255 255 / 0.07) 1.5px, transparent 0),
+    radial-gradient(900px 600px at 0% 0%, rgb(63 140 255 / 0.35), transparent 60%),
+    radial-gradient(800px 600px at 100% 10%, rgb(255 79 160 / 0.3), transparent 60%),
+    radial-gradient(900px 700px at 50% 110%, rgb(255 197 49 / 0.22), transparent 60%);
+  background-size: 22px 22px, auto, auto, auto;
   background-attachment: fixed;
+}
+
+h1, h2, h3, .font-display {
+  font-family: var(--font-display);
+  font-weight: 400; /* Lilita One has a single heavy weight */
+  letter-spacing: 0.01em;
 }
 
 button {
@@ -47,12 +69,79 @@ button:disabled {
 }
 
 :focus-visible {
-  outline: 3px solid var(--color-crack);
-  outline-offset: 2px;
+  outline: 3px solid var(--color-set);
+  outline-offset: 3px;
 }
 
 .safe-bottom {
   padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+@layer components {
+  /* A raised game panel */
+  .panel {
+    background: var(--color-surface);
+    border: 3px solid var(--color-outline);
+    border-radius: 1.5rem;
+    box-shadow: 0 6px 0 var(--color-outline), inset 0 2px 0 rgb(255 255 255 / 0.12);
+  }
+  .panel-sm {
+    background: var(--color-surface);
+    border: 3px solid var(--color-outline);
+    border-radius: 1.1rem;
+    box-shadow: 0 4px 0 var(--color-outline), inset 0 2px 0 rgb(255 255 255 / 0.1);
+  }
+  /* A sunken text field */
+  .field {
+    background: var(--color-bg-deep);
+    border: 3px solid var(--color-outline);
+    border-radius: 1.1rem;
+    box-shadow: inset 0 4px 0 rgb(0 0 0 / 0.35);
+    color: var(--color-ink);
+    font-weight: 700;
+    outline: none;
+    transition: border-color 120ms, box-shadow 120ms;
+  }
+  .field::placeholder {
+    color: rgb(205 188 255 / 0.55);
+    font-weight: 600;
+  }
+  .field:focus {
+    border-color: var(--color-set);
+    box-shadow: inset 0 4px 0 rgb(0 0 0 / 0.35), 0 0 0 4px rgb(255 197 49 / 0.25);
+  }
+  /* A pressable 3D button */
+  .btn3d {
+    border: 3px solid var(--color-outline);
+    box-shadow: 0 5px 0 var(--color-outline), inset 0 -4px 0 rgb(0 0 0 / 0.18), inset 0 3px 0 rgb(255 255 255 / 0.35);
+    transition: transform 80ms ease, box-shadow 80ms ease, filter 120ms;
+  }
+  .btn3d:hover:not(:disabled) {
+    filter: brightness(1.06);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 0 var(--color-outline), inset 0 -4px 0 rgb(0 0 0 / 0.18), inset 0 3px 0 rgb(255 255 255 / 0.35);
+  }
+  .btn3d:active:not(:disabled) {
+    transform: translateY(4px);
+    box-shadow: 0 1px 0 var(--color-outline), inset 0 -2px 0 rgb(0 0 0 / 0.18), inset 0 3px 0 rgb(255 255 255 / 0.25);
+  }
+  .btn3d:disabled {
+    filter: grayscale(0.6) brightness(0.8);
+  }
+  /* A letter tile */
+  .tile {
+    background: var(--color-cream);
+    color: var(--color-outline);
+    border: 3px solid var(--color-outline);
+    box-shadow: 0 4px 0 var(--color-outline), inset 0 -4px 0 var(--color-cream-dark);
+  }
+  .text-outline {
+    -webkit-text-stroke: 1.5px var(--color-outline);
+    paint-order: stroke fill;
+  }
+  .text-shadow-hard {
+    text-shadow: 0 3px 0 var(--color-outline);
+  }
 }
 
 @keyframes pop {
@@ -62,15 +151,25 @@ button:disabled {
 }
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
-  20%, 60% { transform: translateX(-6px); }
-  40%, 80% { transform: translateX(6px); }
+  20%, 60% { transform: translateX(-8px) rotate(-1deg); }
+  40%, 80% { transform: translateX(8px) rotate(1deg); }
+}
+@keyframes bob {
+  0%, 100% { transform: translateY(0) rotate(var(--r, 0deg)); }
+  50% { transform: translateY(-6px) rotate(var(--r, 0deg)); }
+}
+@keyframes drift {
+  0% { transform: translateY(0) rotate(var(--r, 0deg)); }
+  100% { transform: translateY(-120vh) rotate(calc(var(--r, 0deg) + 160deg)); }
 }
 .animate-pop { animation: pop 320ms cubic-bezier(.2,.8,.3,1.2) both; }
-.animate-shake { animation: shake 360ms ease-in-out; }
+.animate-shake { animation: shake 380ms ease-in-out; }
+.animate-bob { animation: bob 2.8s ease-in-out infinite; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 1ms !important;
   }
 }

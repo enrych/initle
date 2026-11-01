@@ -13,7 +13,7 @@ export function HowToPlay() {
       <section className="space-y-2">
         <h3 className={`font-display text-lg font-bold ${ROUND_META.crack.text}`}>Crack it</h3>
         <p>Guess the phrase. Every 8 seconds more is revealed: word lengths, a hint, then letters. Solve earlier for more points.</p>
-        <div className="space-y-2 rounded-2xl bg-bg/60 p-3">
+        <div className="space-y-3 rounded-2xl bg-bg-deep p-4">
           <Board tiles={example(0)} type="crack" size="sm" />
           <Board tiles={example(3)} type="crack" size="sm" />
         </div>
@@ -32,7 +32,7 @@ export function HowToPlay() {
           Before the game, everyone writes two short phrases about the group. They become puzzles. The author scores only if <b>some, but not all</b>, players crack it.
         </p>
       </section>
-      <section className="rounded-2xl border border-line p-4 text-sm text-muted">
+      <section className="panel-sm p-4 text-sm text-muted">
         <b className="text-ink">Scoring:</b> 500 → 100 points by reveal stage, +50 for the first solver, 20 per correct word if you don't finish. The final round counts double.
       </section>
     </div>

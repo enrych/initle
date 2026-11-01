@@ -30,8 +30,8 @@ function DemoBoard() {
   const text = DEMO[i]!;
   const tiles = buildBoard(text, Math.min(stage, 4), new Set(), stage === 5);
   return (
-    <div className="min-h-28" aria-hidden>
-      <Board tiles={tiles} type={(["crack", "fake", "set", "crack"] as const)[i]!} size="sm" />
+    <div className="flex min-h-32 items-center" aria-hidden>
+      <Board tiles={tiles} type={(["crack", "fake", "set", "crack"] as const)[i]!} />
     </div>
   );
 }
@@ -44,7 +44,7 @@ export function NameAvatarPicker({ name, avatar, onName, onAvatar, autoFocus }: 
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
-          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-line bg-surface-2 text-3xl transition hover:border-ink"
+          className="btn3d flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-surface-2 text-3xl"
           aria-label="Change avatar"
           aria-expanded={open}
         >
@@ -58,11 +58,11 @@ export function NameAvatarPicker({ name, avatar, onName, onAvatar, autoFocus }: 
           autoFocus={autoFocus}
           autoComplete="nickname"
           maxLength={16}
-          className="h-14 w-full rounded-2xl border border-line bg-surface-2 px-4 text-lg font-semibold outline-none placeholder:text-muted focus:border-ink"
+          className="h-14 w-full rounded-2xl field px-4 text-lg"
         />
       </div>
       {open && (
-        <div className="grid grid-cols-8 gap-1 rounded-2xl border border-line bg-surface-2 p-2" role="radiogroup" aria-label="Avatar">
+        <div className="panel-sm grid grid-cols-8 gap-1 p-2" role="radiogroup" aria-label="Avatar">
           {AVATARS.map((a) => (
             <button
               key={a}
@@ -73,7 +73,7 @@ export function NameAvatarPicker({ name, avatar, onName, onAvatar, autoFocus }: 
                 onAvatar(a);
                 setOpen(false);
               }}
-              className={`flex h-10 items-center justify-center rounded-xl text-2xl transition hover:bg-line ${a === avatar ? "bg-line ring-2 ring-ink" : ""}`}
+              className={`flex h-10 items-center justify-center rounded-xl text-2xl transition hover:bg-white/10 ${a === avatar ? "bg-set ring-[3px] ring-outline" : ""}`}
             >
               {a}
             </button>
@@ -151,15 +151,15 @@ export function Home() {
     <main className="mx-auto flex min-h-dvh max-w-md flex-col gap-6 px-4 py-8 safe-bottom">
       <header className="flex flex-col items-center gap-3 pt-4 text-center">
         <Logo size="lg" />
-        <p className="font-display text-xl text-muted">Every letter counts.</p>
+        <p className="font-display text-2xl text-cream text-shadow-hard">Every letter counts!</p>
       </header>
 
       {lastRoom ? (
         <Link to={`/r/${lastRoom}`}>
-          <div className="flex items-center justify-between rounded-3xl border border-good/40 bg-good/10 p-5 transition hover:border-good">
+          <div className="panel flex items-center justify-between bg-good p-5 text-outline transition hover:-translate-y-0.5">
             <div>
-              <div className="font-display text-lg font-bold">Game in progress</div>
-              <div className="text-sm text-muted">Rejoin room {lastRoom}. Your score is saved.</div>
+              <div className="font-display text-2xl">Game in progress!</div>
+              <div className="text-sm font-bold opacity-75">Rejoin room {lastRoom}. Your score is saved.</div>
             </div>
             <span className="text-3xl" aria-hidden>
               →
@@ -186,7 +186,7 @@ export function Home() {
             inputMode="text"
             autoCapitalize="characters"
             autoComplete="off"
-            className="h-14 w-full rounded-2xl border border-line bg-surface-2 px-4 text-center font-display text-2xl font-bold tracking-[0.4em] outline-none placeholder:tracking-[0.3em] placeholder:text-muted/60 focus:border-ink"
+            className="h-14 w-full rounded-2xl field px-4 text-center font-display text-2xl font-bold tracking-[0.4em] placeholder:tracking-[0.3em]"
           />
           <Button type="submit" variant="secondary" size="lg" disabled={busy !== null || code.length !== ROOM_CODE_LENGTH}>
             {busy === "join" ? <Spinner /> : "Join"}
@@ -195,18 +195,18 @@ export function Home() {
       </section>
 
       <Link to="/daily" className="group">
-        <motion.div whileTap={{ scale: 0.98 }} className="flex items-center justify-between rounded-3xl border border-line bg-gradient-to-r from-crack/20 to-fake/20 p-5 transition group-hover:border-ink">
+        <motion.div whileTap={{ scale: 0.98 }} className="panel flex items-center justify-between bg-crack p-5 transition group-hover:-translate-y-0.5">
           <div>
-            <div className="font-display text-lg font-bold">Today's Daily</div>
-            <div className="text-sm text-muted">{daily?.done ? "Done for today. See your result." : "One puzzle a day. Solo, 2 minutes."}</div>
+            <div className="font-display text-2xl text-shadow-hard">Today's Daily 📅</div>
+            <div className="text-sm font-bold text-white/85">{daily?.done ? "Done for today. See your result." : "One puzzle a day. Solo, 2 minutes."}</div>
           </div>
-          <span className="text-3xl" aria-hidden>
-            →
+          <span className="btn3d flex h-12 w-12 items-center justify-center rounded-xl bg-set font-display text-2xl text-outline" aria-hidden>
+            ▶
           </span>
         </motion.div>
       </Link>
 
-      <nav className="mt-auto flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm text-muted">
+      <nav className="mt-auto flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm font-extrabold text-muted">
         <button onClick={() => setHowTo(true)} className="underline-offset-4 hover:text-ink hover:underline">
           How to play
         </button>

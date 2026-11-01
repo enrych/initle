@@ -39,7 +39,7 @@ export function WriteScreen() {
   return (
     <div className="flex flex-1 flex-col gap-5">
       <SectionTitle sub="Write a fake title that fits these letters. Make it believable.">Fake it</SectionTitle>
-      <div className="rounded-3xl border border-line bg-surface/60 px-3 py-6">
+      <div className="panel px-3 py-6">
         <Board tiles={r.board} type="fake" />
         <p className="mt-3 text-center text-xs text-muted">From: {r.pack}</p>
       </div>
@@ -67,7 +67,7 @@ export function WriteScreen() {
             aria-label="Your fake answer"
             autoComplete="off"
             enterKeyHint="send"
-            className="h-14 w-full rounded-2xl border-2 border-line bg-surface-2 px-4 text-lg outline-none focus:border-fake"
+            className="h-14 w-full rounded-2xl field px-4 text-lg"
           />
           <div className="flex flex-wrap justify-center gap-1" aria-label="Letter check">
             {initials.map((c, i) => {
@@ -77,7 +77,7 @@ export function WriteScreen() {
                   key={i}
                   className={cn(
                     "flex h-8 w-7 items-center justify-center rounded-md font-display text-sm font-bold",
-                    !typed ? "border border-dashed border-line text-muted" : typed === c ? "bg-good text-bg" : "bg-bad text-white",
+                    !typed ? "border-2 border-dashed border-cream/30 text-muted" : typed === c ? "border-2 border-outline bg-good text-outline" : "border-2 border-outline bg-bad text-white",
                   )}
                 >
                   {c}
@@ -124,8 +124,8 @@ export function VoteScreen() {
                 }}
                 aria-pressed={chosen}
                 className={cn(
-                  "flex-1 rounded-2xl border-2 px-4 py-4 text-left text-lg font-semibold transition",
-                  chosen ? "border-fake bg-fake/15" : "border-line bg-surface hover:border-ink",
+                  "flex-1 rounded-2xl border-[3px] border-outline px-4 py-4 text-left text-lg font-extrabold shadow-[0_4px_0_var(--color-outline)] transition",
+                  chosen ? "-translate-y-1 bg-fake text-white" : "bg-surface hover:bg-surface-2",
                   o.mine && "opacity-50",
                 )}
               >
@@ -135,7 +135,7 @@ export function VoteScreen() {
               {isHost && !o.mine && (
                 <button
                   onClick={() => confirm("Hide this answer for everyone?") && send({ type: "hide", target: o.id })}
-                  className="w-11 rounded-2xl text-muted hover:bg-bad/15 hover:text-bad"
+                  className="w-11 rounded-2xl text-muted hover:bg-bad/20"
                   aria-label={`Hide answer: ${o.text}`}
                   title="Hide (host)"
                 >

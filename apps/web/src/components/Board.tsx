@@ -5,9 +5,10 @@ import { cn } from "../lib/cn";
 const ACCENT: Record<RoundType | "daily", string> = {
   crack: "bg-crack text-white",
   fake: "bg-fake text-white",
-  set: "bg-set text-bg",
+  set: "bg-set text-outline",
   daily: "bg-crack text-white",
 };
+const SOLID = "border-[3px] border-outline shadow-[0_4px_0_var(--color-outline),inset_0_-4px_0_rgb(0_0_0/0.18)]";
 
 type Size = "sm" | "md" | "lg";
 
@@ -44,32 +45,29 @@ export function Board({ tiles, type, size = "md", className }: { tiles: BoardTil
       {tiles.map((t, i) => {
         if (t.kind === "punct")
           return (
-            <span key={`p${i}`} className="font-display font-bold text-muted" style={{ fontSize: cell.fontSize }} aria-hidden>
+            <span key={`p${i}`} className="font-display text-cream" style={{ fontSize: cell.fontSize }} aria-hidden>
               {t.text}
             </span>
           );
-        const solved = t.chars.length > 1 && t.chars.every(Boolean);
         return (
-          <div key={`w${t.index}`} className={cn("flex", t.dim && !t.mine && "opacity-60")} style={{ gap }} aria-hidden>
+          <div key={`w${t.index}`} className={cn("flex", t.dim && !t.mine && "opacity-75 saturate-50")} style={{ gap }} aria-hidden>
             {t.chars.map((ch, j) => {
               const isInitial = j === 0;
               return (
                 <motion.span
                   key={`${t.index}-${j}-${ch ?? "_"}-${t.mine ? 1 : 0}`}
-                  initial={{ rotateY: 90, opacity: 0.4 }}
-                  animate={{ rotateY: 0, opacity: 1 }}
-                  transition={{ duration: 0.28, delay: j * 0.03 }}
+                  initial={{ rotateY: 90, scale: 0.8 }}
+                  animate={{ rotateY: 0, scale: 1, rotate: isInitial && !t.mine ? (t.index % 2 ? 3 : -3) : 0 }}
+                  transition={{ type: "spring", stiffness: 420, damping: 18, delay: j * 0.03 }}
                   className={cn(
-                    "flex shrink-0 items-center justify-center font-display leading-none font-bold uppercase select-none",
+                    "flex shrink-0 items-center justify-center font-display leading-none uppercase select-none",
                     t.mine
-                      ? "bg-good text-bg"
+                      ? cn("bg-good text-outline", SOLID)
                       : isInitial
-                        ? ACCENT[type]
+                        ? cn(ACCENT[type], SOLID)
                         : ch
-                          ? solved
-                            ? "bg-ink text-bg"
-                            : "bg-surface-2 text-ink"
-                          : "border-2 border-dashed border-line text-transparent",
+                          ? "tile"
+                          : "border-[3px] border-dashed border-cream/25 bg-white/5 text-transparent",
                   )}
                   style={cell}
                 >
@@ -93,7 +91,7 @@ export function InitialsPreview({ text, className }: { text: string; className?:
       {words.map((w, i) => {
         const ch = w.replace(/[^\p{L}\p{N}]/gu, "")[0];
         return ch ? (
-          <span key={i} className="flex h-7 w-6 items-center justify-center rounded-md bg-surface-2 font-display text-sm font-bold uppercase">
+          <span key={i} className="tile flex h-8 w-7 items-center justify-center rounded-md font-display text-base uppercase">
             {ch}
           </span>
         ) : null;
