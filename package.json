@@ -1,9 +1,15 @@
 {
   "name": "initle",
   "private": true,
-  "workspaces": [
-    "backend",
-    "frontend",
-    "shared"
-  ]
+  "type": "module",
+  "packageManager": "pnpm@10.28.0",
+  "scripts": {
+    "dev": "pnpm -r --parallel --filter \"./apps/*\" dev",
+    "build": "pnpm --filter web build",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "deploy": "pnpm build && pnpm --filter server deploy",
+    "e2e": "./scripts/e2e.sh",
+    "assets": "node scripts/gen-assets.mjs"
+  }
 }

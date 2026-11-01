@@ -1,5 +1,9 @@
 **/node_modules
 **/dist
+**/.wrangler
+**/.dev.vars
+**/test-results
+**/playwright-report
 **/.vscode/*
-**/!.vscode/extensions.json
+!**/.vscode/extensions.json
 **/.DS_Store
