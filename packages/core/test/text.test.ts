@@ -54,7 +54,7 @@ describe("evaluateGuess", () => {
   });
 });
 
-import { fitsInitials, dailyItem, dayNumber, dayDate, checkPhrase, containsBlocked } from "../src";
+import { fitsInitials, dailyItem, dayNumber, dayDate, checkPhrase, containsBlocked, wordKey, wordTokens } from "../src";
 
 describe("fake initials", () => {
   it("accepts matching initials, any case", () => {
@@ -79,5 +79,26 @@ describe("moderation", () => {
     expect(checkPhrase("what the fuck", true).ok).toBe(false);
     expect(checkPhrase("what the fuck", false).ok).toBe(true);
     expect(checkPhrase("Scunthorpe is lovely", true).ok).toBe(true);
+  });
+});
+
+const COMMON = new Set(["your", "you", "before", "have", "than", "what", "with", "from", "that", "this", "they", "them", "when", "there", "then", "more", "its", "it", "are", "for", "not", "all", "one", "can", "cant", "dont"]);
+
+describe("pack content", () => {
+  it("hints never contain a meaningful answer word", () => {
+    const offenders: string[] = [];
+    for (const pack of Object.values(PACKS))
+      for (const item of pack.items) {
+        const hintKeys = new Set(item.hint.split(/\s+/).map((w) => wordKey(w)));
+        const leaked = wordTokens(item.text).filter((w) => w.key.length >= 3 && !w.dim && !COMMON.has(w.key) && hintKeys.has(w.key));
+        if (leaked.length) offenders.push(`${item.text} ← ${item.hint}`);
+      }
+    expect(offenders).toEqual([]);
+  });
+  it("no duplicate items within a pack", () => {
+    for (const pack of Object.values(PACKS)) {
+      const keys = pack.items.map((i) => phraseKey(i.text));
+      expect(new Set(keys).size, pack.id).toBe(keys.length);
+    }
   });
 });

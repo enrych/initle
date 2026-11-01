@@ -95,6 +95,17 @@ export function Home() {
   const [busy, setBusy] = useState<"create" | "join" | null>(null);
   const [howTo, setHowTo] = useState(false);
   const daily = store.get<{ day: number; done: boolean } | null>("initle:daily:last", null);
+  const [lastRoom, setLastRoom] = useState<string | null>(null);
+
+  // Offer to rejoin a room you were recently in (closed tab, phone locked, crash).
+  useEffect(() => {
+    const last = store.get<{ code: string; at: number } | null>("initle:lastRoom", null);
+    if (!last || Date.now() - last.at > 6 * 60 * 60 * 1000) return;
+    api
+      .roomStatus(last.code)
+      .then((s) => s.exists && s.phase !== "lobby" && setLastRoom(last.code))
+      .catch(() => {});
+  }, []);
 
   const persist = () => saveIdentity({ name: name.trim(), avatar });
   const needName = () => {
@@ -143,9 +154,23 @@ export function Home() {
         <p className="font-display text-xl text-muted">Every letter counts.</p>
       </header>
 
-      <Card className="py-6">
-        <DemoBoard />
-      </Card>
+      {lastRoom ? (
+        <Link to={`/r/${lastRoom}`}>
+          <div className="flex items-center justify-between rounded-3xl border border-good/40 bg-good/10 p-5 transition hover:border-good">
+            <div>
+              <div className="font-display text-lg font-bold">Game in progress</div>
+              <div className="text-sm text-muted">Rejoin room {lastRoom}. Your score is saved.</div>
+            </div>
+            <span className="text-3xl" aria-hidden>
+              →
+            </span>
+          </div>
+        </Link>
+      ) : (
+        <Card className="py-6">
+          <DemoBoard />
+        </Card>
+      )}
 
       <section className="space-y-3">
         <NameAvatarPicker name={name} avatar={avatar} onName={setName} onAvatar={setAvatar} />
