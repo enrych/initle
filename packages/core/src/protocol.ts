@@ -19,7 +19,7 @@ export const ClientMessage = z.discriminatedUnion("type", [
     fake: z.boolean().optional(),
     set: z.boolean().optional(),
     family: z.boolean().optional(),
-    speed: z.enum(["relaxed", "normal", "fast", "custom"]).optional(),
+    speed: z.enum(["relaxed", "normal", "fast", "custom", "untimed"]).optional(),
     timers: z
       .object({
         stageMs: z.number().int().optional(),

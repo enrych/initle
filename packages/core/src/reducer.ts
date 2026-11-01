@@ -50,6 +50,19 @@ export function initialRoom(code = ""): Room {
 
 export type RoundTypes = { crack: boolean; fake: boolean; set: boolean };
 
+/** Phases the host can run without a timer. */
+const HOST_PACED = ["prep", "play", "write", "vote"];
+
+/** Deadline for a host-paceable phase, or null when the room plays without timers. */
+function timed(s: Room, from: number, ms: number): number | null {
+  return s.settings.speed === "untimed" ? null : from + ms;
+}
+
+function phaseMs(s: Room): number {
+  const t = s.settings.timers;
+  return s.phase === "prep" ? t.prepMs : s.phase === "play" ? t.stageMs : s.phase === "write" ? t.writeMs : t.voteMs;
+}
+
 const emptyStats = (): Player["stats"] => ({ solves: 0, firstSolves: 0, fooled: 0, foundReal: 0, setPoints: 0, fastest: null });
 
 function fail(state: Room, to: string, code: ReduceError["code"], message: string): ReduceResult {
@@ -217,7 +230,7 @@ function toVote(s: Room, now: number) {
   const all = shuffle([...merged.values(), { id: "", text: optionDisplay(r.item.text), authors: [], real: true, hidden: false }], mulberry32(s.seed + r.index * 7919));
   r.options = all.map((o, i) => ({ ...o, id: `o${i}` }));
   s.phase = "vote";
-  s.deadline = now + s.settings.timers.voteMs;
+  s.deadline = timed(s, now, s.settings.timers.voteMs);
 }
 
 function toReveal(s: Room, now: number) {
@@ -307,18 +320,18 @@ function advance(s: Room, now: number) {
         if (s.round!.type === "fake") {
           s.phase = "write";
           s.round!.startedAt = at;
-          s.deadline = at + s.settings.timers.writeMs;
+          s.deadline = timed(s, at, s.settings.timers.writeMs);
         } else {
           s.phase = "play";
           s.round!.startedAt = at;
           s.round!.stage = 0;
-          s.deadline = at + s.settings.timers.stageMs;
+          s.deadline = timed(s, at, s.settings.timers.stageMs);
         }
         break;
       case "play":
         if (s.round!.stage < CONFIG.STAGES - 1) {
           s.round!.stage++;
-          s.deadline = at + s.settings.timers.stageMs;
+          s.deadline = timed(s, at, s.settings.timers.stageMs);
         } else toReveal(s, at);
         break;
       case "write":
@@ -458,7 +471,9 @@ export function reduce(prev: Room, action: Action, now: number): ReduceResult {
       if (!types.crack && !types.fake && !types.set) return fail(prev, action.playerId, "BAD_MESSAGE", "Keep at least one round type.");
       Object.assign(s.settings, types);
       if (action.family !== undefined) s.settings.family = action.family;
-      if (action.speed && action.speed !== "custom") {
+      const wasUntimed = s.settings.speed === "untimed";
+      if (action.speed === "untimed") s.settings.speed = "untimed";
+      else if (action.speed && action.speed !== "custom") {
         s.settings.speed = action.speed;
         s.settings.timers = { ...SPEED_PRESETS[action.speed] };
       }
@@ -467,6 +482,11 @@ export function reduce(prev: Room, action: Action, now: number): ReduceResult {
         s.settings.timers = clampTimers(action.timers, s.settings.timers);
       }
       if (s.settings.family) s.pool = s.pool.filter((i) => !containsBlocked(i.text));
+      // Switching timers on or off takes effect in the current phase too.
+      const nowUntimed = s.settings.speed === "untimed";
+      if (inGame && !s.paused && HOST_PACED.includes(s.phase) && wasUntimed !== nowUntimed) {
+        s.deadline = nowUntimed ? null : now + phaseMs(s);
+      }
       if (inGame) replan(s);
       return done();
     }
@@ -487,7 +507,7 @@ export function reduce(prev: Room, action: Action, now: number): ReduceResult {
 
     case "next": {
       if (s.hostId !== action.playerId) return fail(prev, action.playerId, "NOT_HOST", "Only the host can skip ahead.");
-      if (s.paused || s.deadline === null || !["prep", "intro", "reveal", "scoreboard"].includes(s.phase)) return { state: prev, events };
+      if (s.paused || !["prep", "intro", "play", "write", "vote", "reveal", "scoreboard"].includes(s.phase)) return { state: prev, events };
       s.deadline = now;
       advance(s, now);
       return done();
@@ -534,7 +554,7 @@ export function reduce(prev: Room, action: Action, now: number): ReduceResult {
       if (s.settings.set) {
         for (const id of s.order) assignPrompts(s, id);
         s.phase = "prep";
-        s.deadline = now + s.settings.timers.prepMs;
+        s.deadline = timed(s, now, s.settings.timers.prepMs);
       } else beginRounds(s, now);
       return done();
     }

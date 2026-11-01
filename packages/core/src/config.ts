@@ -71,9 +71,10 @@ export function isBuiltInPack(id: string): boolean {
 
 /** Phase lengths the host can tune. Reveal, intro and scoreboard stay fixed (the host can tap Next). */
 export type Timers = { stageMs: number; prepMs: number; writeMs: number; voteMs: number };
-export type Speed = "relaxed" | "normal" | "fast" | "custom";
+/** "untimed": prep, reveals, writing and voting wait for the host's Next instead of a timer. */
+export type Speed = "relaxed" | "normal" | "fast" | "custom" | "untimed";
 
-export const SPEED_PRESETS: Record<Exclude<Speed, "custom">, Timers> = {
+export const SPEED_PRESETS: Record<"relaxed" | "normal" | "fast", Timers> = {
   relaxed: { stageMs: 16_000, prepMs: 120_000, writeMs: 75_000, voteMs: 40_000 },
   normal: { stageMs: 11_000, prepMs: 90_000, writeMs: 55_000, voteMs: 30_000 },
   fast: { stageMs: 7_000, prepMs: 60_000, writeMs: 35_000, voteMs: 20_000 },

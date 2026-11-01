@@ -207,7 +207,8 @@ function RoomShell() {
   const color = r ? ROUND_META[r.type].color : "#4f8cff";
   const inGame = view.phase !== "lobby" && view.phase !== "final";
   const canPause = isHost && inGame && (view.deadline !== null || !!view.paused);
-  const canNext = isHost && !view.paused && ["prep", "intro", "reveal", "scoreboard"].includes(view.phase);
+  const untimed = view.settings.speed === "untimed";
+  const canNext = isHost && !view.paused && (["prep", "intro", "reveal", "scoreboard"].includes(view.phase) || (untimed && ["write", "vote"].includes(view.phase)));
   const closeMenu = (fn: () => void) => () => {
     setMenu(false);
     fn();

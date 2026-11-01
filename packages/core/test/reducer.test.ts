@@ -121,6 +121,29 @@ describe("host controls (v2.1)", () => {
     expect(sim.s.settings.rounds).toBe(3);
   });
 
+  it("no timer: phases wait for the host, Next reveals more and closes writing/voting", () => {
+    const sim = lobby({ fake: true, set: false, rounds: 3, speed: "untimed" });
+    sim.act({ type: "start", playerId: "p1", items, seed: 42 });
+    sim.next(); // intro still auto-advances
+    expect(sim.s.phase).toBe("play");
+    expect(sim.s.deadline).toBeNull();
+    sim.wait(10 * 60 * 1000);
+    expect(sim.s.round!.stage).toBe(0); // nothing moves on its own
+    sim.act({ type: "next", playerId: "p1" });
+    expect(sim.s.round!.stage).toBe(1);
+    expect(sim.s.deadline).toBeNull();
+    for (let i = 0; i < 4; i++) sim.act({ type: "next", playerId: "p1" });
+    expect(sim.s.phase).toBe("reveal");
+    sim.next(); // scoreboard
+    sim.next(); // intro (fake round)
+    sim.next();
+    expect(sim.s.phase).toBe("write");
+    expect(sim.s.deadline).toBeNull();
+    // turning timers back on mid-phase starts the clock now
+    sim.act({ type: "settings", playerId: "p1", speed: "fast" });
+    expect(sim.s.deadline! - sim.t).toBe(35_000);
+  });
+
   it("speed presets and custom timers are clamped", () => {
     const sim = lobby();
     sim.act({ type: "settings", playerId: "p1", speed: "relaxed" });

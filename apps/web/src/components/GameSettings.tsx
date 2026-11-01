@@ -28,6 +28,7 @@ const SPEEDS: { id: Exclude<Speed, "custom">; label: string; hint: string }[] = 
   { id: "relaxed", label: "Relaxed", hint: "16s reveals" },
   { id: "normal", label: "Normal", hint: "11s reveals" },
   { id: "fast", label: "Fast", hint: "7s reveals" },
+  { id: "untimed", label: "No timer", hint: "Host moves on" },
 ];
 
 const TIMER_ROWS: { key: keyof Timers; label: string; hint: string }[] = [
@@ -105,8 +106,11 @@ export function GameSettings({ view, send, canEdit, onAddPack }: { view: View; s
         </div>
       </Section>
 
-      <Section title="Speed" note={st.speed === "custom" ? "Custom timers" : undefined}>
-        <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Speed">
+      <Section
+        title="Speed"
+        note={st.speed === "custom" ? "Custom timers" : st.speed === "untimed" ? "No timers: the host taps Next to reveal more letters and to close writing and voting." : undefined}
+      >
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="radiogroup" aria-label="Speed">
           {SPEEDS.map((s) => {
             const on = st.speed === s.id;
             return (
@@ -130,10 +134,10 @@ export function GameSettings({ view, send, canEdit, onAddPack }: { view: View; s
             );
           })}
         </div>
-        <button type="button" onClick={() => setShowCustom((v) => !v)} className="mt-2 text-sm font-extrabold text-muted underline-offset-4 hover:text-ink hover:underline">
+        <button type="button" onClick={() => setShowCustom((v) => !v)} hidden={st.speed === "untimed"} className="mt-2 text-sm font-extrabold text-muted underline-offset-4 hover:text-ink hover:underline">
           {showCustom ? "Hide custom timers" : "Custom timers…"}
         </button>
-        {showCustom && (
+        {showCustom && st.speed !== "untimed" && (
           <div className="mt-3 space-y-3 rounded-2xl bg-bg-deep p-3">
             {TIMER_ROWS.map((row) => {
               const [lo, hi] = TIMER_LIMITS[row.key];

@@ -92,10 +92,23 @@ export function WriteScreen() {
         </form>
       )}
 
+      <HostCloseButton label="Close writing and vote ▸" />
       <div className="mt-auto">
         <PlayerStrip players={view.players} me={view.me} />
       </div>
     </div>
+  );
+}
+
+/** With no timer, the host decides when writing or voting ends. */
+function HostCloseButton({ label }: { label: string }) {
+  const { view, send } = useRoom();
+  if (view.settings.speed !== "untimed") return null;
+  if (view.hostId !== view.me) return <p className="text-center text-sm font-bold text-muted">No timer: the host moves on when everyone's ready.</p>;
+  return (
+    <Button variant="secondary" className="w-full" onClick={() => send({ type: "next" })}>
+      {label}
+    </Button>
   );
 }
 
@@ -146,7 +159,8 @@ export function VoteScreen() {
           );
         })}
       </ul>
-      {r.myVote && <p className="text-center text-sm text-muted">Vote locked in. You can change it until time runs out.</p>}
+      {r.myVote && <p className="text-center text-sm text-muted">Vote locked in. You can change it until voting closes.</p>}
+      <HostCloseButton label="Close voting and reveal ▸" />
       <div className="mt-auto">
         <PlayerStrip players={view.players} me={view.me} />
       </div>

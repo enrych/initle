@@ -82,7 +82,11 @@ export function PlayScreen() {
       <div className="space-y-2 text-center">
         <StagePips stage={r.stage} color={meta.color} />
         <p className="text-sm text-muted">
-          {r.stage < CONFIG.STAGES - 1 ? (
+          {view.settings.speed === "untimed" ? (
+            <>
+              No timer · worth <b className="text-ink">{(CONFIG.STAGE_POINTS[r.stage] ?? 100) * r.multiplier}</b> now · the host reveals more when you're ready
+            </>
+          ) : r.stage < CONFIG.STAGES - 1 ? (
             <>
               Next reveal in <b className="text-ink tabular-nums">{Math.ceil(left / 1000)}s</b> · worth <b className="text-ink">{(CONFIG.STAGE_POINTS[r.stage] ?? 100) * r.multiplier}</b> now
             </>
@@ -92,6 +96,11 @@ export function PlayScreen() {
             </>
           )}
         </p>
+        {view.settings.speed === "untimed" && view.hostId === view.me && (
+          <Button variant="secondary" size="sm" onClick={() => send({ type: "next" })}>
+            {r.stage < CONFIG.STAGES - 1 ? "Reveal more letters ▸" : "Show the answer ▸"}
+          </Button>
+        )}
       </div>
 
       <div className="flex min-h-40 flex-col items-center justify-center gap-4 panel px-3 py-6">
