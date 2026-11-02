@@ -2,6 +2,8 @@ export const CONFIG = {
   MIN_PLAYERS: 2,
   MAX_PLAYERS: 10,
   ROUND_OPTIONS: [5, 8, 12] as const,
+  ROUNDS_MIN: 3,
+  ROUNDS_MAX: 20,
   DEFAULT_ROUNDS: 8,
   MAX_PACKS: 6,
   PREP_MS: 75_000,
@@ -65,4 +67,34 @@ export const PROMPTS = [
 
 export function isBuiltInPack(id: string): boolean {
   return !id.startsWith("c_");
+}
+
+/** Phase lengths the host can tune. Reveal, intro and scoreboard stay fixed (the host can tap Next). */
+export type Timers = { stageMs: number; prepMs: number; writeMs: number; voteMs: number };
+/** "untimed": prep, reveals, writing and voting wait for the host's Next instead of a timer. */
+export type Speed = "relaxed" | "normal" | "fast" | "custom" | "untimed";
+
+export const SPEED_PRESETS: Record<"relaxed" | "normal" | "fast", Timers> = {
+  relaxed: { stageMs: 16_000, prepMs: 120_000, writeMs: 75_000, voteMs: 40_000 },
+  normal: { stageMs: 11_000, prepMs: 90_000, writeMs: 55_000, voteMs: 30_000 },
+  fast: { stageMs: 7_000, prepMs: 60_000, writeMs: 35_000, voteMs: 20_000 },
+};
+
+/** Allowed range per timer, in ms, for custom speeds. */
+export const TIMER_LIMITS: Record<keyof Timers, [min: number, max: number]> = {
+  stageMs: [5_000, 30_000],
+  prepMs: [30_000, 300_000],
+  writeMs: [20_000, 150_000],
+  voteMs: [10_000, 90_000],
+};
+
+export function clampTimers(t: Partial<Timers>, base: Timers): Timers {
+  const out = { ...base };
+  for (const key of Object.keys(TIMER_LIMITS) as (keyof Timers)[]) {
+    const v = t[key];
+    if (typeof v !== "number" || !Number.isFinite(v)) continue;
+    const [lo, hi] = TIMER_LIMITS[key];
+    out[key] = Math.round(Math.min(hi, Math.max(lo, v)) / 1000) * 1000;
+  }
+  return out;
 }

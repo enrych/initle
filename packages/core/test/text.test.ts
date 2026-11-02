@@ -71,6 +71,12 @@ describe("daily", () => {
     expect(dailyItem(5)).toEqual(dailyItem(5));
     expect(dailyItem(5).id).not.toBe(dailyItem(6).id);
   });
+  it("adding puzzles never changes past or current days (day 1 was To Kill a Mockingbird)", () => {
+    expect(dailyItem(1).text).toBe("To Kill a Mockingbird");
+    const total = Object.values(PACKS).reduce((n, p) => n + p.items.length, 0);
+    const seen = new Set(Array.from({ length: total }, (_, i) => dailyItem(i + 1).id));
+    expect(seen.size).toBe(total); // every puzzle appears once per cycle
+  });
 });
 
 describe("moderation", () => {

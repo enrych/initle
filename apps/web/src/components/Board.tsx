@@ -12,7 +12,7 @@ const SOLID = "border-[3px] border-outline shadow-[0_4px_0_var(--color-outline),
 
 type Size = "sm" | "md" | "lg";
 
-const MAX_CELL_REM: Record<Size, number> = { sm: 1.5, md: 2.5, lg: 4.5 };
+const MAX_CELL_REM: Record<Size, number> = { sm: 1.5, md: 2.5, lg: 6.5 };
 const GAP_PX: Record<Size, number> = { sm: 3, md: 4, lg: 8 };
 
 /**

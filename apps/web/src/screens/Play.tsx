@@ -32,6 +32,10 @@ export function PlayScreen() {
   const [text, setText] = useState("");
   const [shake, setShake] = useState(0);
   const [burst, setBurst] = useState<number | null>(null);
+  // This round's guesses and what each earned, so a miss isn't silently forgotten.
+  const [history, setHistory] = useState<{ round: number; text: string; result: string; good: boolean }[]>([]);
+  const lastGuess = useRef("");
+  const mine = history.filter((h) => h.round === r.index);
   const inputRef = useRef<HTMLInputElement>(null);
   const left = useCountdown(view.deadline, offset);
   const prevStage = useRef(r.stage);
@@ -48,6 +52,8 @@ export function PlayScreen() {
 
   useGameEvent((e) => {
     if (e.type === "guess-result") {
+      const result = e.solved ? `solved! +${e.points}` : e.newlyLocked > 0 ? `+${e.newlyLocked} word${e.newlyLocked > 1 ? "s" : ""}` : "no match";
+      setHistory((h) => [...h, { round: r.index, text: lastGuess.current, result, good: e.solved || e.newlyLocked > 0 }].slice(-20));
       if (e.solved) {
         sfx.solve();
         confetti({ count: 90 });
@@ -60,6 +66,7 @@ export function PlayScreen() {
       } else {
         sfx.miss();
         setShake((s) => s + 1);
+        setText("");
       }
     }
     if (e.type === "solve" && e.playerId !== view.me) {
@@ -72,6 +79,11 @@ export function PlayScreen() {
     e.preventDefault();
     const t = text.trim();
     if (!t) return;
+    if (mine.some((h) => h.text.toLowerCase() === t.toLowerCase())) {
+      toast("You already tried that one", "info", 1500);
+      return;
+    }
+    lastGuess.current = t;
     send({ type: "guess", text: t });
   };
 
@@ -82,7 +94,11 @@ export function PlayScreen() {
       <div className="space-y-2 text-center">
         <StagePips stage={r.stage} color={meta.color} />
         <p className="text-sm text-muted">
-          {r.stage < CONFIG.STAGES - 1 ? (
+          {view.settings.speed === "untimed" ? (
+            <>
+              No timer · worth <b className="text-ink">{(CONFIG.STAGE_POINTS[r.stage] ?? 100) * r.multiplier}</b> now · the host reveals more when you're ready
+            </>
+          ) : r.stage < CONFIG.STAGES - 1 ? (
             <>
               Next reveal in <b className="text-ink tabular-nums">{Math.ceil(left / 1000)}s</b> · worth <b className="text-ink">{(CONFIG.STAGE_POINTS[r.stage] ?? 100) * r.multiplier}</b> now
             </>
@@ -92,6 +108,11 @@ export function PlayScreen() {
             </>
           )}
         </p>
+        {view.settings.speed === "untimed" && view.hostId === view.me && (
+          <Button variant="secondary" size="sm" onClick={() => send({ type: "next" })}>
+            {r.stage < CONFIG.STAGES - 1 ? "Reveal more letters ▸" : "Show the answer ▸"}
+          </Button>
+        )}
       </div>
 
       <div className="flex min-h-40 flex-col items-center justify-center gap-4 panel px-3 py-6">
@@ -144,6 +165,20 @@ export function PlayScreen() {
             ↵
           </Button>
         </form>
+      )}
+
+      {mine.length > 0 && !isAuthor && (
+        <ol className="space-y-1" aria-label="Your guesses this round">
+          {mine
+            .slice()
+            .reverse()
+            .map((h, i) => (
+              <li key={i} className="flex items-center justify-between gap-3 rounded-xl bg-bg-deep px-3 py-1.5 text-sm">
+                <span className="truncate font-bold">{h.text}</span>
+                <span className={cn("shrink-0 font-extrabold", h.good ? "text-good" : "text-muted")}>{h.result}</span>
+              </li>
+            ))}
+        </ol>
       )}
 
       <div className="mt-auto">

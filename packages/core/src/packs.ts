@@ -1,4 +1,4 @@
-import { BOLLYWOOD, BOOKS, IDIOMS, MOVIES, SONGS, TV, type Entry } from "./packs-data";
+import { BOLLYWOOD, BOOKS, IDIOMS, MOVIES, PLACES, QUOTES, SONGS, TV, type Entry } from "./packs-data";
 import { mulberry32, shuffle } from "./random";
 import type { Item, PackId } from "./types";
 
@@ -15,6 +15,8 @@ export const PACKS: Record<PackId, BuiltInPack> = {
   songs: { id: "songs", name: "Songs", description: "Anthems and earworms", items: build("songs", SONGS) },
   books: { id: "books", name: "Books", description: "Classics and bestsellers", items: build("books", BOOKS) },
   bollywood: { id: "bollywood", name: "Bollywood", description: "Hindi cinema favourites", items: build("bollywood", BOLLYWOOD) },
+  quotes: { id: "quotes", name: "Famous Quotes", description: "Lines everyone knows", items: build("quotes", QUOTES) },
+  places: { id: "places", name: "Places & Landmarks", description: "Wonders of the world", items: build("places", PLACES) },
 };
 
 export const BUILT_IN_PACK_IDS = Object.keys(PACKS);
@@ -38,11 +40,26 @@ export function dayDate(day: number): string {
   return new Date(DAILY_EPOCH + (day - 1) * 86_400_000).toISOString().slice(0, 10);
 }
 
+/**
+ * Puzzles per pack in the first Daily generation (v2.0, launched 2026-11-01). These numbers must never
+ * change: they keep every past and current day's puzzle stable when new puzzles are added.
+ */
+const DAILY_GEN1: Record<string, number> = { idioms: 52, movies: 49, tv: 40, songs: 43, books: 45, bollywood: 37 };
+
 let dailyOrder: Item[] | null = null;
 
-/** Deterministic puzzle for a day: a fixed shuffle of all built-in items, cycled. */
+function buildDailyOrder(): Item[] {
+  const all = Object.values(PACKS).flatMap((p) => p.items);
+  const inGen1 = (i: Item) => Number(i.id.slice(i.pack.length + 1)) <= (DAILY_GEN1[i.pack] ?? 0);
+  // Generation 1 reproduces the original order exactly; puzzles added later are appended after it.
+  const gen1 = shuffle(all.filter(inGen1), mulberry32(DAILY_SEED));
+  const later = shuffle(all.filter((i) => !inGen1(i)), mulberry32(DAILY_SEED + 1));
+  return [...gen1, ...later];
+}
+
+/** Deterministic puzzle for a day: a fixed order of all built-in items, cycled. */
 export function dailyItem(day: number): Item {
-  if (!dailyOrder) dailyOrder = shuffle(Object.values(PACKS).flatMap((p) => p.items), mulberry32(DAILY_SEED));
+  dailyOrder ??= buildDailyOrder();
   const n = dailyOrder.length;
   return dailyOrder[(((day - 1) % n) + n) % n]!;
 }

@@ -92,10 +92,23 @@ export function WriteScreen() {
         </form>
       )}
 
+      <HostCloseButton label="Close writing and vote ▸" />
       <div className="mt-auto">
         <PlayerStrip players={view.players} me={view.me} />
       </div>
     </div>
+  );
+}
+
+/** With no timer, the host decides when writing or voting ends. */
+function HostCloseButton({ label }: { label: string }) {
+  const { view, send } = useRoom();
+  if (view.settings.speed !== "untimed") return null;
+  if (view.hostId !== view.me) return <p className="text-center text-sm font-bold text-muted">No timer: the host moves on when everyone's ready.</p>;
+  return (
+    <Button variant="secondary" className="w-full" onClick={() => send({ type: "next" })}>
+      {label}
+    </Button>
   );
 }
 
@@ -104,6 +117,7 @@ export function VoteScreen() {
   const r = view.round!;
   const isHost = view.hostId === view.me;
   const options = r.options ?? [];
+  const [moderate, setModerate] = useState(false);
 
   return (
     <div className="flex flex-1 flex-col gap-4">
@@ -132,7 +146,7 @@ export function VoteScreen() {
                 {o.text}
                 {o.mine && <span className="ml-2 text-xs font-normal text-muted">(yours)</span>}
               </button>
-              {isHost && !o.mine && (
+              {isHost && moderate && !o.mine && (
                 <button
                   onClick={() => confirm("Hide this answer for everyone?") && send({ type: "hide", target: o.id })}
                   className="w-11 rounded-2xl text-muted hover:bg-bad/20"
@@ -146,7 +160,13 @@ export function VoteScreen() {
           );
         })}
       </ul>
-      {r.myVote && <p className="text-center text-sm text-muted">Vote locked in. You can change it until time runs out.</p>}
+      {r.myVote && <p className="text-center text-sm text-muted">Vote locked in. You can change it until voting closes.</p>}
+      {isHost && (
+        <button onClick={() => setModerate((m) => !m)} className="mx-auto text-xs font-extrabold text-muted underline-offset-4 hover:text-ink hover:underline">
+          {moderate ? "Done hiding" : "Hide an offensive answer…"}
+        </button>
+      )}
+      <HostCloseButton label="Close voting and reveal ▸" />
       <div className="mt-auto">
         <PlayerStrip players={view.players} me={view.me} />
       </div>

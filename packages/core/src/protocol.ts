@@ -14,11 +14,26 @@ export const ClientMessage = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("settings"),
     packs: z.array(PackIdSchema).min(1).max(CONFIG.MAX_PACKS).optional(),
-    rounds: z.number().int().optional(),
+    rounds: z.number().int().min(1).max(50).optional(),
+    crack: z.boolean().optional(),
     fake: z.boolean().optional(),
     set: z.boolean().optional(),
     family: z.boolean().optional(),
+    speed: z.enum(["relaxed", "normal", "fast", "custom", "untimed"]).optional(),
+    timers: z
+      .object({
+        stageMs: z.number().int().optional(),
+        prepMs: z.number().int().optional(),
+        writeMs: z.number().int().optional(),
+        voteMs: z.number().int().optional(),
+      })
+      .optional(),
   }),
+  z.object({ type: z.literal("pause") }),
+  z.object({ type: z.literal("resume") }),
+  z.object({ type: z.literal("next") }),
+  z.object({ type: z.literal("end") }),
+  z.object({ type: z.literal("host"), target: z.string().min(1).max(64) }),
   z.object({ type: z.literal("start") }),
   z.object({ type: z.literal("prep"), slot: z.number().int().min(0).max(5), text: z.string().max(200) }),
   z.object({ type: z.literal("guess"), text: z.string().trim().min(1).max(CONFIG.GUESS_MAX) }),
@@ -66,3 +81,23 @@ export const DailyGuessBody = z.object({
   stage: z.number().int().min(0).max(CONFIG.STAGES - 1),
 });
 export type DailyGuessBody = z.infer<typeof DailyGuessBody>;
+
+// ---------- Solo (endless) ----------
+
+export const SoloNextBody = z.object({
+  packs: z.array(PackIdSchema).min(1).max(CONFIG.MAX_PACKS),
+  exclude: z.array(z.string().max(40)).max(300).default([]),
+});
+export type SoloNextBody = z.infer<typeof SoloNextBody>;
+
+export const SoloGuessBody = z.object({
+  id: z.string().min(1).max(40),
+  /** Empty with reveal=true: skip ahead one stage without guessing. */
+  guess: z.string().trim().max(CONFIG.GUESS_MAX),
+  reveal: z.boolean().optional(),
+  locked: z.array(z.number().int().min(0).max(40)).max(40),
+  stage: z.number().int().min(0).max(CONFIG.STAGES - 1),
+});
+export type SoloGuessBody = z.infer<typeof SoloGuessBody>;
+
+export const SoloGiveUpBody = z.object({ id: z.string().min(1).max(40), locked: z.array(z.number().int().min(0).max(40)).max(40).default([]) });

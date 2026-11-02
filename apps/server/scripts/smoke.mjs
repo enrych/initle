@@ -53,6 +53,14 @@ assert(daily.body.board.length > 0, "daily board");
 const dg = await api("/api/daily/guess", { method: "POST", body: JSON.stringify({ day: daily.body.day, guess: "zzz", locked: [], stage: 0 }) });
 assert(dg.body.stage === 1 && dg.body.done === false, "daily wrong guess advances");
 
+// Solo: next puzzle, a wrong guess advances the stage, give up reveals the answer.
+const solo = await api("/api/solo/next", { method: "POST", body: JSON.stringify({ packs: ["idioms"], exclude: [] }) });
+assert(solo.status === 200 && solo.body.id.startsWith("idioms-") && !("answer" in solo.body), "solo next " + JSON.stringify(solo.body));
+const sg = await api("/api/solo/guess", { method: "POST", body: JSON.stringify({ id: solo.body.id, guess: "zzz qqq", locked: [], stage: 0 }) });
+assert(sg.body.stage === 1 && sg.body.done === false && !sg.body.answer, "solo guess");
+const gu = await api("/api/solo/giveup", { method: "POST", body: JSON.stringify({ id: solo.body.id, locked: [] }) });
+assert(typeof gu.body.answer === "string" && gu.body.answer.length > 0, "solo give up");
+
 const { body: room } = await api("/api/rooms", { method: "POST" });
 assert(/^[A-Z]{4}$/.test(room.code), "room code");
 const status = await api(`/api/rooms/${room.code}`);

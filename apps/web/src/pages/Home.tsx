@@ -9,6 +9,7 @@ import { Button, Card, Logo, Modal, Spinner } from "../components/ui";
 import { api } from "../lib/api";
 import { getIdentity, saveIdentity } from "../lib/identity";
 import { store } from "../lib/storage";
+import { streakStatus } from "../lib/streak";
 
 const DEMO = ["I Know What You Did Last Summer", "Piece of cake", "The Lord of the Rings: The Two Towers", "Breaking Bad"];
 
@@ -94,7 +95,7 @@ export function Home() {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState<"create" | "join" | null>(null);
   const [howTo, setHowTo] = useState(false);
-  const daily = store.get<{ day: number; done: boolean } | null>("initle:daily:last", null);
+  const streak = streakStatus();
   const [lastRoom, setLastRoom] = useState<string | null>(null);
 
   // Offer to rejoin a room you were recently in (closed tab, phone locked, crash).
@@ -152,25 +153,11 @@ export function Home() {
       <header className="flex flex-col items-center gap-3 pt-4 text-center">
         <Logo size="lg" />
         <p className="font-display text-2xl text-cream text-shadow-hard">Every letter counts!</p>
+        <p className="max-w-xs font-bold text-muted">The party game of initials. Crack them, fake them, and write your own about your friends.</p>
       </header>
 
-      {lastRoom ? (
-        <Link to={`/r/${lastRoom}`}>
-          <div className="panel flex items-center justify-between bg-good p-5 text-outline transition hover:-translate-y-0.5">
-            <div>
-              <div className="font-display text-2xl">Game in progress!</div>
-              <div className="text-sm font-bold opacity-75">Rejoin room {lastRoom}. Your score is saved.</div>
-            </div>
-            <span className="text-3xl" aria-hidden>
-              →
-            </span>
-          </div>
-        </Link>
-      ) : (
-        <Card className="py-6">
-          <DemoBoard />
-        </Card>
-      )}
+
+
 
       <section className="space-y-3">
         <NameAvatarPicker name={name} avatar={avatar} onName={setName} onAvatar={setAvatar} />
@@ -194,21 +181,74 @@ export function Home() {
         </form>
       </section>
 
-      <Link to="/daily" className="group">
-        <motion.div whileTap={{ scale: 0.98 }} className="panel flex items-center justify-between bg-crack p-5 transition group-hover:-translate-y-0.5">
-          <div>
-            <div className="font-display text-2xl text-shadow-hard">Today's Daily 📅</div>
-            <div className="text-sm font-bold text-white/85">{daily?.done ? "Done for today. See your result." : "One puzzle a day. Solo, 2 minutes."}</div>
+      {lastRoom && (
+        <Link to={`/r/${lastRoom}`}>
+          <div className="panel flex items-center justify-between bg-good p-5 text-outline transition hover:-translate-y-0.5">
+            <div>
+              <div className="font-display text-2xl">Game in progress!</div>
+              <div className="text-sm font-bold opacity-75">Rejoin room {lastRoom}. Your score is saved.</div>
+            </div>
+            <span className="text-3xl" aria-hidden>
+              →
+            </span>
           </div>
-          <span className="btn3d flex h-12 w-12 items-center justify-center rounded-xl bg-set font-display text-2xl text-outline" aria-hidden>
-            ▶
-          </span>
-        </motion.div>
-      </Link>
+        </Link>
+      )}
+
+      <div className="grid grid-cols-2 gap-3">
+        <Link to="/daily" className="group">
+          <motion.div whileTap={{ scale: 0.97 }} className="panel flex h-full flex-col gap-1 bg-crack p-4 transition group-hover:-translate-y-0.5">
+            <div className="flex items-center justify-between">
+              <span className="font-display text-2xl text-shadow-hard">Daily</span>
+              {streak.streak > 0 && <span className="rounded-lg border-2 border-outline bg-set px-1.5 font-display text-sm text-outline">🔥 {streak.streak}</span>}
+            </div>
+            <span className="text-sm font-bold text-white/90">
+              {streak.playedToday ? "Done today. See you tomorrow!" : streak.atRisk ? `Keep your ${streak.streak}-day streak alive!` : "One puzzle a day. Start a streak!"}
+            </span>
+          </motion.div>
+        </Link>
+        <Link to="/solo" className="group">
+          <motion.div whileTap={{ scale: 0.97 }} className="panel flex h-full flex-col gap-1 bg-fake p-4 transition group-hover:-translate-y-0.5">
+            <span className="font-display text-2xl text-shadow-hard">Solo</span>
+            <span className="text-sm font-bold text-white/90">Endless puzzles at your own pace</span>
+          </motion.div>
+        </Link>
+      </div>
+
+      <Card className="py-5">
+        <DemoBoard />
+      </Card>
+      <ol className="grid grid-cols-3 gap-2 text-center text-xs font-extrabold" aria-label="How it works">
+        {[
+          ["1", "Make a room", "on your phone or TV"],
+          ["2", "Friends join", "with a 4-letter code"],
+          ["3", "Crack the initials", "fake them, write them"],
+        ].map(([n, title, sub]) => (
+          <li key={n} className="panel-sm flex flex-col items-center gap-1 px-2 py-3">
+            <span className="flex h-7 w-7 -rotate-6 items-center justify-center rounded-lg border-2 border-outline bg-set font-display text-sm text-outline">{n}</span>
+            <span className="text-sm leading-tight">{title}</span>
+            <span className="font-bold leading-tight text-muted">{sub}</span>
+          </li>
+        ))}
+      </ol>
+      <p className="-mt-3 text-center text-xs font-extrabold text-muted">2–10 players · free · no app or sign-up</p>
 
       <nav className="mt-auto flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm font-extrabold text-muted">
         <button onClick={() => setHowTo(true)} className="underline-offset-4 hover:text-ink hover:underline">
           How to play
+        </button>
+        <button
+          onClick={async () => {
+            try {
+              const { code } = await api.createRoom();
+              navigate(`/stage/${code}`);
+            } catch (e) {
+              toast((e as Error).message, "bad");
+            }
+          }}
+          className="underline-offset-4 hover:text-ink hover:underline"
+        >
+          Host on a TV
         </button>
         <Link to="/packs/new" className="underline-offset-4 hover:text-ink hover:underline">
           Make a custom pack

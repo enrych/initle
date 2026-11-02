@@ -41,13 +41,129 @@ function lobby(settings: Partial<Room["settings"]> = {}) {
 
 describe("plan", () => {
   it("cycles crack/fake/set and ends with set", () => {
-    expect(buildPlan(8, true, true, 10)).toEqual(["crack", "fake", "set", "crack", "fake", "set", "crack", "set"]);
+    expect(buildPlan(8, { crack: true, fake: true, set: true }, 10)).toEqual(["crack", "fake", "set", "crack", "fake", "set", "crack", "set"]);
   });
   it("converts set rounds to crack when phrases run out, keeping the final", () => {
-    expect(buildPlan(5, false, true, 1)).toEqual(["crack", "crack", "crack", "crack", "set"]);
+    expect(buildPlan(5, { crack: true, fake: false, set: true }, 1)).toEqual(["crack", "crack", "crack", "crack", "set"]);
   });
   it("crack only", () => {
-    expect(buildPlan(5, false, false, 0)).toEqual(Array(5).fill("crack"));
+    expect(buildPlan(5, { crack: true, fake: false, set: false }, 0)).toEqual(Array(5).fill("crack"));
+  });
+});
+
+describe("plan with chosen round types", () => {
+  it("no Fake: only Crack and Set", () => {
+    expect(buildPlan(6, { crack: true, fake: false, set: true }, 10)).toEqual(["crack", "set", "crack", "set", "crack", "set"]);
+  });
+  it("Fake only", () => {
+    expect(buildPlan(3, { crack: false, fake: true, set: false }, 0)).toEqual(["fake", "fake", "fake"]);
+  });
+  it("Set only falls back to Fake when phrases run out and Crack is off", () => {
+    expect(buildPlan(3, { crack: false, fake: true, set: true }, 1)).toEqual(["fake", "fake", "set"]);
+  });
+});
+
+describe("host controls (v2.1)", () => {
+  function playing() {
+    const sim = lobby({ fake: false, set: false, rounds: 3 });
+    sim.act({ type: "start", playerId: "p1", items, seed: 1 });
+    sim.next(); // intro -> play
+    expect(sim.s.phase).toBe("play");
+    return sim;
+  }
+
+  it("pause freezes the timer and blocks guesses; resume continues with the same time left", () => {
+    const sim = playing();
+    const left = sim.s.deadline! - sim.t;
+    sim.wait(2000);
+    sim.act({ type: "pause", playerId: "p1" });
+    expect(sim.s.paused?.remaining).toBe(left - 2000);
+    expect(sim.s.deadline).toBeNull();
+    expect(sim.act({ type: "guess", playerId: "p2", text: "x" }).error?.message).toMatch(/paused/);
+    sim.wait(60 * 60 * 1000); // dinner
+    expect(sim.s.phase).toBe("play");
+    sim.act({ type: "resume", playerId: "p1" });
+    expect(sim.s.deadline! - sim.t).toBe(left - 2000);
+  });
+
+  it("only the host can pause", () => {
+    const sim = playing();
+    expect(sim.act({ type: "pause", playerId: "p2" }).error?.code).toBe("NOT_HOST");
+  });
+
+  it("auto-pauses when everyone leaves and auto-resumes when someone returns", () => {
+    const sim = playing();
+    for (const id of ["p1", "p2", "p3"]) sim.act({ type: "leave", playerId: id });
+    expect(sim.s.paused?.auto).toBe(true);
+    sim.act({ type: "join", playerId: "p2", token: "tok-p2-xxxx", name: "Ben", avatar: "🦊" });
+    expect(sim.s.paused).toBeNull();
+    expect(sim.s.deadline).not.toBeNull();
+  });
+
+  it("settings can change mid-game: timers apply to the next stage, rounds and types re-plan the rest", () => {
+    const sim = playing();
+    sim.act({ type: "settings", playerId: "p1", timers: { stageMs: 20_000 } });
+    expect(sim.s.settings.speed).toBe("custom");
+    sim.next(); // stage 1 uses the new length
+    expect(sim.s.deadline! - sim.t).toBe(20_000);
+    sim.act({ type: "settings", playerId: "p1", rounds: 4 });
+    expect(sim.s.plan).toHaveLength(4);
+    expect(sim.act({ type: "settings", playerId: "p1", crack: false }).error?.message).toMatch(/at least one/);
+  });
+
+  it("can't shrink rounds below what's already been played", () => {
+    const sim = playing();
+    sim.act({ type: "skip", playerId: "p1" });
+    sim.next(); // scoreboard
+    sim.next(); // round 2 intro
+    sim.act({ type: "settings", playerId: "p1", rounds: 3 });
+    sim.act({ type: "settings", playerId: "p1", rounds: 1 });
+    expect(sim.s.settings.rounds).toBe(3);
+  });
+
+  it("no timer: phases wait for the host, Next reveals more and closes writing/voting", () => {
+    const sim = lobby({ fake: true, set: false, rounds: 3, speed: "untimed" });
+    sim.act({ type: "start", playerId: "p1", items, seed: 42 });
+    sim.next(); // intro still auto-advances
+    expect(sim.s.phase).toBe("play");
+    expect(sim.s.deadline).toBeNull();
+    sim.wait(10 * 60 * 1000);
+    expect(sim.s.round!.stage).toBe(0); // nothing moves on its own
+    sim.act({ type: "next", playerId: "p1" });
+    expect(sim.s.round!.stage).toBe(1);
+    expect(sim.s.deadline).toBeNull();
+    for (let i = 0; i < 4; i++) sim.act({ type: "next", playerId: "p1" });
+    expect(sim.s.phase).toBe("reveal");
+    sim.next(); // scoreboard
+    sim.next(); // intro (fake round)
+    sim.next();
+    expect(sim.s.phase).toBe("write");
+    expect(sim.s.deadline).toBeNull();
+    // turning timers back on mid-phase starts the clock now
+    sim.act({ type: "settings", playerId: "p1", speed: "fast" });
+    expect(sim.s.deadline! - sim.t).toBe(35_000);
+  });
+
+  it("speed presets and custom timers are clamped", () => {
+    const sim = lobby();
+    sim.act({ type: "settings", playerId: "p1", speed: "relaxed" });
+    expect(sim.s.settings.timers.stageMs).toBe(16_000);
+    sim.act({ type: "settings", playerId: "p1", timers: { stageMs: 999_999, voteMs: 1 } });
+    expect(sim.s.settings.timers.stageMs).toBe(30_000);
+    expect(sim.s.settings.timers.voteMs).toBe(10_000);
+  });
+
+  it("next skips the reveal wait; end jumps to the podium; host can be handed over", () => {
+    const sim = playing();
+    sim.act({ type: "skip", playerId: "p1" });
+    expect(sim.s.phase).toBe("reveal");
+    sim.act({ type: "next", playerId: "p1" });
+    expect(sim.s.phase).toBe("scoreboard");
+    sim.act({ type: "host", playerId: "p1", target: "p2" });
+    expect(sim.s.hostId).toBe("p2");
+    expect(sim.act({ type: "end", playerId: "p1" }).error?.code).toBe("NOT_HOST");
+    sim.act({ type: "end", playerId: "p2" });
+    expect(sim.s.phase).toBe("final");
   });
 });
 
@@ -238,6 +354,15 @@ describe("fake rounds", () => {
     expect(gained("p3")).toBe(150);
     const v = toView(sim.s, "p1", sim.t);
     expect(v.reveal!.options!.find((o) => o.real)!.voters).toEqual(["p2"]);
+  });
+
+  it("fake rounds prefer short phrases", () => {
+    const sim = lobby({ fake: true, set: false, crack: false, rounds: 3 });
+    const long: Item = { id: "long", pack: "idioms", text: "Not the sharpest tool in the shed", hint: "x", aliases: [] };
+    sim.act({ type: "start", playerId: "p1", items: [long, ...items], seed: 1 });
+    sim.next();
+    expect(sim.s.round!.type).toBe("fake");
+    expect(sim.s.round!.item.id).not.toBe("long");
   });
 
   it("does not leak which option is real during voting", () => {

@@ -2,6 +2,10 @@ import {
   CONFIG,
   CreatePackBody,
   DailyGuessBody,
+  SoloGiveUpBody,
+  SoloGuessBody,
+  SoloNextBody,
+  type Item,
   PACKS,
   ROOM_CODE_ALPHABET,
   ROOM_CODE_LENGTH,
@@ -190,6 +194,78 @@ async function dailyGuess(env: Env, req: Request, ctx: ExecutionContext): Promis
   });
 }
 
+// ---------- Solo (endless) ----------
+// Stateless like the Daily: the client keeps its own progress; the answer never leaves the server
+// until the puzzle is solved or given up.
+
+async function findItem(env: Env, id: string): Promise<Item | null> {
+  const dash = id.lastIndexOf("-");
+  if (dash <= 0) return null;
+  const pack = id.slice(0, dash);
+  if (PACKS[pack]) return PACKS[pack]!.items.find((i) => i.id === id) ?? null;
+  if (!/^c_[a-z0-9]{6,16}$/.test(pack)) return null;
+  const [custom] = await loadCustomPacks(env.DB, [pack]);
+  return custom?.items.find((i) => i.id === id) ?? null;
+}
+
+async function soloNext(env: Env, req: Request): Promise<Response> {
+  const parsed = SoloNextBody.safeParse(await readJson(req));
+  if (!parsed.success) return error(400, "Pick at least one pack.");
+  const { packs, exclude } = parsed.data;
+  const builtIn = packs.filter((p) => PACKS[p]).flatMap((p) => PACKS[p]!.items);
+  const customIds = packs.filter((p) => p.startsWith("c_"));
+  const custom = customIds.length ? (await loadCustomPacks(env.DB, customIds)).flatMap((p) => p.items) : [];
+  const pool = [...builtIn, ...custom];
+  if (pool.length === 0) return error(400, "Those packs have no puzzles.");
+  const seen = new Set(exclude);
+  const fresh = pool.filter((i) => !seen.has(i.id));
+  // Everything seen? Start the cycle again rather than running dry.
+  const from = fresh.length > 0 ? fresh : pool;
+  const item = from[crypto.getRandomValues(new Uint32Array(1))[0]! % from.length]!;
+  return json({
+    id: item.id,
+    pack: PACKS[item.pack]?.name ?? "Custom pack",
+    wordCount: wordTokens(item.text).length,
+    stages: CONFIG.STAGES,
+    board: buildBoard(item.text, 0, new Set(), false),
+    remaining: fresh.length - 1,
+    cycled: fresh.length === 0,
+  });
+}
+
+async function soloGuess(env: Env, req: Request): Promise<Response> {
+  const parsed = SoloGuessBody.safeParse(await readJson(req));
+  if (!parsed.success) return error(400, "Bad guess.");
+  const { id, guess, stage, reveal } = parsed.data;
+  if (!reveal && !guess) return error(400, "Type a guess.");
+  const item = await findItem(env, id);
+  if (!item) return error(404, "Puzzle not found.");
+  const total = wordTokens(item.text).length;
+  const locked = [...new Set(parsed.data.locked.filter((i) => i < total))];
+  const result = reveal ? { newlyLocked: [] as number[], solved: false } : evaluateGuess(item.text, item.aliases, cleanText(guess), locked);
+  const nowLocked = [...locked, ...result.newlyLocked];
+  const done = result.solved || stage >= CONFIG.STAGES - 1;
+  const next = result.solved ? stage : Math.min(stage + 1, CONFIG.STAGES - 1);
+  return json({
+    done,
+    solved: result.solved,
+    stage: next,
+    newlyLocked: result.newlyLocked.length,
+    locked: nowLocked,
+    hint: done || next >= 2 ? item.hint : null,
+    board: buildBoard(item.text, next, new Set(nowLocked), done),
+    ...(done ? { answer: item.text } : {}),
+  });
+}
+
+async function soloGiveUp(env: Env, req: Request): Promise<Response> {
+  const parsed = SoloGiveUpBody.safeParse(await readJson(req));
+  if (!parsed.success) return error(400, "Bad request.");
+  const item = await findItem(env, parsed.data.id);
+  if (!item) return error(404, "Puzzle not found.");
+  return json({ answer: item.text, hint: item.hint, board: buildBoard(item.text, CONFIG.STAGES - 1, new Set(parsed.data.locked), true) });
+}
+
 // ---------- Router ----------
 
 export default {
@@ -225,6 +301,10 @@ export default {
 
         if (pathname === "/api/daily" && req.method === "GET") return getDaily(url);
         if (pathname === "/api/daily/guess" && req.method === "POST") return (await limited(env.GUESS_LIMITER, req, "daily")) ?? (await dailyGuess(env, req, ctx));
+
+        if (pathname === "/api/solo/next" && req.method === "POST") return (await limited(env.GUESS_LIMITER, req, "solo")) ?? (await soloNext(env, req));
+        if (pathname === "/api/solo/guess" && req.method === "POST") return (await limited(env.GUESS_LIMITER, req, "solo")) ?? (await soloGuess(env, req));
+        if (pathname === "/api/solo/giveup" && req.method === "POST") return await soloGiveUp(env, req);
 
         if (pathname === "/api/health") return json({ ok: true, day: today() });
         return error(404, "Not found");

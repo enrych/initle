@@ -17,6 +17,7 @@ let shot = 0;
 async function newPlayer(name) {
   const ctx = await browser.newContext(phone);
   const page = await ctx.newPage();
+  page.on("dialog", (d) => d.accept()); // leave/kick confirmations
   page.on("pageerror", (e) => errors.push(`${name}: ${e.message}`));
   page.on("console", (m) => m.type() === "error" && !m.text().includes("WebSocket") && errors.push(`${name} console: ${m.text()}`));
   return page;
@@ -60,7 +61,7 @@ await tv.getByText("Join on your phone at").waitFor();
 await snap(tv, "stage-lobby");
 
 // Host settings: 5 rounds, all round types
-await host.getByRole("radio", { name: "5" }).click();
+await host.getByRole("button", { name: "5", exact: true }).click();
 await snap(host, "lobby");
 await host.getByRole("button", { name: "Start game" }).click();
 
@@ -115,17 +116,32 @@ while (Date.now() < deadline) {
     await host.waitForFunction(() => document.body.innerText.includes("Which one is real?"), null, { timeout: 15000 });
     continue;
   }
-  if (await host.getByLabel("Your guess").isVisible().catch(() => false) || text.includes("This is your puzzle")) {
+  if (await host.getByLabel("Your guess", { exact: true }).isVisible().catch(() => false) || text.includes("This is your puzzle")) {
     if (text.includes("Puzzle by") || text.includes("This is your puzzle")) sawSet = true;
     // A wrong guess (shake) and a partial guess, then the host skips to keep the test fast.
     for (const p of players) {
-      const input = p.getByLabel("Your guess");
+      const input = p.getByLabel("Your guess", { exact: true });
       if (await input.isVisible().catch(() => false)) {
         await input.fill("the of and a");
         await input.press("Enter");
       }
     }
     if (rounds === 0) {
+      // Pause: everyone sees it, guesses are blocked, resume brings the round back.
+      await host.getByRole("button", { name: "Pause game" }).click();
+      await guests[1].getByRole("dialog", { name: "Game paused" }).waitFor();
+      await tv.getByRole("dialog", { name: "Game paused" }).waitFor();
+      await snap(host, "paused");
+      await snap(tv, "stage-paused");
+      await host.getByRole("dialog", { name: "Game paused" }).getByRole("button", { name: "▶ Resume" }).click();
+      await guests[1].getByRole("dialog", { name: "Game paused" }).waitFor({ state: "detached" });
+      // Change settings mid-game: slower speed, one more round.
+      await host.getByRole("button", { name: "Menu" }).click();
+      await host.getByRole("button", { name: "Game settings" }).click();
+      await host.getByRole("radio", { name: /Relaxed/ }).click();
+      await host.getByRole("button", { name: "More rounds" }).click();
+      await snap(host, "settings-midgame");
+      await host.getByRole("button", { name: "Close" }).click();
       // Reconnect: a guest reloads mid-round and must land back in the same game with the same seat.
       await guests[0].reload();
       await guests[0].getByText(/Next reveal|Last chance|Round skipped|Leaderboard/).first().waitFor({ timeout: 15000 });
@@ -169,6 +185,21 @@ for (let i = 0; i < 5; i++) {
 }
 await solo.getByText("Share result").waitFor();
 await snap(solo, "daily-done");
+
+// Solo: start, a wrong guess, give up, next puzzle
+await solo.goto(`${BASE}/solo`);
+await solo.getByRole("button", { name: "Start playing" }).click();
+const soloInput = solo.getByRole("textbox", { name: "Your guess" });
+await soloInput.waitFor();
+await soloInput.fill("definitely not it");
+await soloInput.press("Enter");
+await solo.getByText("no match").waitFor();
+await snap(solo, "solo-playing");
+await solo.getByRole("button", { name: "Give up and show the answer" }).click();
+await solo.getByText("The answer:").waitFor();
+await snap(solo, "solo-missed");
+await solo.getByRole("button", { name: "Next puzzle ▸" }).click();
+await soloInput.waitFor();
 
 // Custom pack
 await solo.goto(`${BASE}/packs/new`);
