@@ -7,7 +7,7 @@ import { HowToPlay } from "../components/HowToPlay";
 import { toast } from "../components/Toasts";
 import { Button, Card, Logo, Modal, Spinner } from "../components/ui";
 import { api } from "../lib/api";
-import { getIdentity, saveIdentity } from "../lib/identity";
+import { getIdentity, saveIdentity, suggestName } from "../lib/identity";
 import { store } from "../lib/storage";
 import { streakStatus } from "../lib/streak";
 
@@ -90,7 +90,7 @@ const codeChars = new RegExp(`[^${ROOM_CODE_ALPHABET}]`, "g");
 export function Home() {
   const navigate = useNavigate();
   const initial = getIdentity();
-  const [name, setName] = useState(initial.name);
+  const [name, setName] = useState(initial.name || suggestName());
   const [avatar, setAvatar] = useState(initial.avatar);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState<"create" | "join" | null>(null);
