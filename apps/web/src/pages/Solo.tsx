@@ -6,6 +6,7 @@ import { Board } from "../components/Board";
 import { usePacks } from "../components/GameSettings";
 import { toast } from "../components/Toasts";
 import { Button, Card, Logo, Spinner, Stamp } from "../components/ui";
+import { initAds, interstitial } from "../lib/ads";
 import { api } from "../lib/api";
 import { cn } from "../lib/cn";
 import { confetti } from "../lib/confetti";
@@ -48,6 +49,7 @@ export function SoloPage() {
   const inputRef = useRef<HTMLInputElement>(null);
   const packs = usePacks();
 
+  useEffect(() => initAds(), []);
   useEffect(() => store.set(KEY, st), [st]);
   useEffect(() => {
     if (st.current && !st.current.done) inputRef.current?.focus();
@@ -268,7 +270,11 @@ export function SoloPage() {
                 The answer: <span className="font-extrabold">{p.answer}</span>
               </p>
               {!p.solved && run.bestStreak > 1 && <p className="text-sm font-bold text-muted">Streak reset. Best this run: {run.bestStreak} in a row.</p>}
-              <Button size="lg" className="w-full" onClick={() => fetchNext(st)} disabled={busy} autoFocus>
+              <Button size="lg" className="w-full" onClick={async () => {
+                  setBusy(true);
+                  await interstitial("solo-next");
+                  fetchNext(st);
+                }} disabled={busy} autoFocus>
                 {busy ? <Spinner /> : "Next puzzle ▸"}
               </Button>
             </motion.div>
