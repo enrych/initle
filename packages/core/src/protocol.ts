@@ -17,13 +17,11 @@ export const ClientMessage = z.discriminatedUnion("type", [
     rounds: z.number().int().min(1).max(50).optional(),
     crack: z.boolean().optional(),
     fake: z.boolean().optional(),
-    set: z.boolean().optional(),
     family: z.boolean().optional(),
     speed: z.enum(["relaxed", "normal", "fast", "custom", "untimed"]).optional(),
     timers: z
       .object({
         stageMs: z.number().int().optional(),
-        prepMs: z.number().int().optional(),
         writeMs: z.number().int().optional(),
         voteMs: z.number().int().optional(),
       })
@@ -35,7 +33,6 @@ export const ClientMessage = z.discriminatedUnion("type", [
   z.object({ type: z.literal("end") }),
   z.object({ type: z.literal("host"), target: z.string().min(1).max(64) }),
   z.object({ type: z.literal("start") }),
-  z.object({ type: z.literal("prep"), slot: z.number().int().min(0).max(5), text: z.string().max(200) }),
   z.object({ type: z.literal("guess"), text: z.string().trim().min(1).max(CONFIG.GUESS_MAX) }),
   z.object({ type: z.literal("fake"), text: z.string().trim().min(1).max(CONFIG.GUESS_MAX) }),
   z.object({ type: z.literal("vote"), option: z.string().max(8) }),

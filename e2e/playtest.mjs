@@ -82,20 +82,6 @@ await ana.getByRole("button", { name: "Fewer rounds" }).click();
 await look(ana, "ana", "lobby-settings");
 await ana.getByRole("button", { name: "Start game" }).click();
 
-// Prep
-await ana.getByText("Write about your group").waitFor();
-await look(ana, "ana", "prep");
-const prepWrite = async (page, texts) => {
-  for (const t of texts) {
-    await page.getByPlaceholder("2–8 words").first().fill(t);
-    await page.getByRole("button", { name: "Save" }).first().click();
-    await page.waitForTimeout(200);
-  }
-};
-await prepWrite(ana, ["Ben is always late", "Pizza every Friday night"]);
-await look(ana, "ana", "prep-done-waiting");
-await prepWrite(ben, ["Ana never shares fries", "Group chat never sleeps"]);
-const setPhrases = ["Ben is always late", "Pizza every Friday night", "Ana never shares fries", "Group chat never sleeps"];
 
 // 4. Cy joins late (mid-game) with the room code.
 const cy = await (await ctx()).newPage();
@@ -123,7 +109,7 @@ while (Date.now() < end) {
     await look(ana, "ana", `r${round}-play`);
     await look(tv, "tv", `r${round}-play`);
     const ini = await boardInitials(ben);
-    const known = [...(byInitials.get(ini) ?? []), ...setPhrases.filter((p) => initialsOf(p) === ini)];
+    const known = byInitials.get(ini) ?? [];
     // Cy guesses wrong, then a partial word.
     if (cyJoined && (await cy.getByLabel("Your guess", { exact: true }).isVisible().catch(() => false))) {
       await cy.getByLabel("Your guess", { exact: true }).fill("no idea honestly");

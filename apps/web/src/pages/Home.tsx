@@ -32,7 +32,7 @@ function DemoBoard() {
   const tiles = buildBoard(text, Math.min(stage, 4), new Set(), stage === 5);
   return (
     <div className="flex min-h-32 items-center" aria-hidden>
-      <Board tiles={tiles} type={(["crack", "fake", "set", "crack"] as const)[i]!} />
+      <Board tiles={tiles} type={(["crack", "fake", "crack", "fake"] as const)[i % 4]!} />
     </div>
   );
 }
@@ -153,7 +153,7 @@ export function Home() {
       <header className="flex flex-col items-center gap-3 pt-4 text-center">
         <Logo size="lg" />
         <p className="font-display text-2xl text-cream text-shadow-hard">Every letter counts!</p>
-        <p className="max-w-xs font-bold text-muted">The party game of initials. Crack them, fake them, and write your own about your friends.</p>
+        <p className="max-w-xs font-bold text-muted">The party game of initials. Crack them, fake them, and fool your friends.</p>
       </header>
 
 
@@ -234,7 +234,7 @@ export function Home() {
         {[
           ["1", "Make a room", "on your phone or TV"],
           ["2", "Friends join", "with a 4-letter code"],
-          ["3", "Crack the initials", "fake them, write them"],
+          ["3", "Crack the initials", "or fake them"],
         ].map(([n, title, sub]) => (
           <li key={n} className="panel-sm flex flex-col items-center gap-1 px-2 py-3">
             <span className="flex h-7 w-7 -rotate-6 items-center justify-center rounded-lg border-2 border-outline bg-set font-display text-sm text-outline">{n}</span>

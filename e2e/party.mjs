@@ -60,25 +60,11 @@ await tv.goto(`${BASE}/stage/${code}`);
 await tv.getByText("Join on your phone at").waitFor();
 await snap(tv, "stage-lobby");
 
-// Host settings: 5 rounds, all round types
+// Host settings: 5 rounds, Crack and Fake
 await host.getByRole("button", { name: "5", exact: true }).click();
 await snap(host, "lobby");
 await host.getByRole("button", { name: "Start game" }).click();
 
-// Prep
-const phrases = { Ana: ["Never trust a pigeon", "Coffee before talking"], Ben: ["Big hat energy", "Mondays are lies"], Cy: ["Snack o clock forever", "Dance it out"] };
-for (const [i, p] of players.entries()) {
-  const name = ["Ana", "Ben", "Cy"][i];
-  await p.getByText("Write about your group").waitFor();
-  if (i === 0) await snap(p, "prep");
-  const inputs = p.getByPlaceholder("2–8 words");
-  for (const [slot, text] of phrases[name].entries()) {
-    await inputs.first().fill(text);
-    await p.getByRole("button", { name: "Save" }).first().click();
-    await p.waitForTimeout(150);
-    void slot;
-  }
-}
 await tv.waitForTimeout(300);
 
 async function phaseOf(page) {
@@ -88,7 +74,6 @@ async function phaseOf(page) {
 let rounds = 0;
 const snapped = new Set();
 let sawFake = false;
-let sawSet = false;
 const deadline = Date.now() + 240_000;
 while (Date.now() < deadline) {
   const text = await phaseOf(host);
@@ -117,7 +102,6 @@ while (Date.now() < deadline) {
     continue;
   }
   if (await host.getByLabel("Your guess", { exact: true }).isVisible().catch(() => false) || text.includes("This is your puzzle")) {
-    if (text.includes("Puzzle by") || text.includes("This is your puzzle")) sawSet = true;
     // A wrong guess (shake) and a partial guess, then the host skips to keep the test fast.
     for (const p of players) {
       const input = p.getByLabel("Your guess", { exact: true });
@@ -209,14 +193,14 @@ await solo.getByRole("button", { name: "Create pack" }).click();
 await solo.getByText("is ready").waitFor();
 await snap(solo, "pack-created");
 
-console.log(`rounds played via skip: ${rounds}, fake: ${sawFake}, set: ${sawSet}`);
+console.log(`rounds played via skip: ${rounds}, fake: ${sawFake}`);
 await browser.close();
 if (errors.length) {
   console.error("Page errors:\n" + errors.join("\n"));
   process.exit(1);
 }
-if (!sawFake || !sawSet) {
-  console.error("Expected to see fake and set rounds");
+if (!sawFake) {
+  console.error("Expected to see a fake round");
   process.exit(1);
 }
 console.log("E2E OK");

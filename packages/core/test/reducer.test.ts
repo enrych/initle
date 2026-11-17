@@ -40,32 +40,23 @@ function lobby(settings: Partial<Room["settings"]> = {}) {
 }
 
 describe("plan", () => {
-  it("cycles crack/fake/set and ends with set", () => {
-    expect(buildPlan(8, { crack: true, fake: true, set: true }, 10)).toEqual(["crack", "fake", "set", "crack", "fake", "set", "crack", "set"]);
-  });
-  it("converts set rounds to crack when phrases run out, keeping the final", () => {
-    expect(buildPlan(5, { crack: true, fake: false, set: true }, 1)).toEqual(["crack", "crack", "crack", "crack", "set"]);
+  it("alternates crack and fake", () => {
+    expect(buildPlan(5, { crack: true, fake: true })).toEqual(["crack", "fake", "crack", "fake", "crack"]);
   });
   it("crack only", () => {
-    expect(buildPlan(5, { crack: true, fake: false, set: false }, 0)).toEqual(Array(5).fill("crack"));
+    expect(buildPlan(5, { crack: true, fake: false })).toEqual(Array(5).fill("crack"));
   });
-});
-
-describe("plan with chosen round types", () => {
-  it("no Fake: only Crack and Set", () => {
-    expect(buildPlan(6, { crack: true, fake: false, set: true }, 10)).toEqual(["crack", "set", "crack", "set", "crack", "set"]);
+  it("fake only", () => {
+    expect(buildPlan(3, { crack: false, fake: true })).toEqual(["fake", "fake", "fake"]);
   });
-  it("Fake only", () => {
-    expect(buildPlan(3, { crack: false, fake: true, set: false }, 0)).toEqual(["fake", "fake", "fake"]);
-  });
-  it("Set only falls back to Fake when phrases run out and Crack is off", () => {
-    expect(buildPlan(3, { crack: false, fake: true, set: true }, 1)).toEqual(["fake", "fake", "set"]);
+  it("falls back to crack when nothing is on", () => {
+    expect(buildPlan(2, { crack: false, fake: false })).toEqual(["crack", "crack"]);
   });
 });
 
 describe("host controls (v2.1)", () => {
   function playing() {
-    const sim = lobby({ fake: false, set: false, rounds: 3 });
+    const sim = lobby({ fake: false, rounds: 3 });
     sim.act({ type: "start", playerId: "p1", items, seed: 1 });
     sim.next(); // intro -> play
     expect(sim.s.phase).toBe("play");
@@ -122,7 +113,7 @@ describe("host controls (v2.1)", () => {
   });
 
   it("no timer: phases wait for the host, Next reveals more and closes writing/voting", () => {
-    const sim = lobby({ fake: true, set: false, rounds: 3, speed: "untimed" });
+    const sim = lobby({ fake: true, rounds: 3, speed: "untimed" });
     sim.act({ type: "start", playerId: "p1", items, seed: 42 });
     sim.next(); // intro still auto-advances
     expect(sim.s.phase).toBe("play");
@@ -185,25 +176,18 @@ describe("lobby rules", () => {
     const sim = lobby();
     expect(sim.act({ type: "join", playerId: "p2", token: "tok-wrong-xx", name: "Ben", avatar: "🦊" }).error?.code).toBe("UNKNOWN_PLAYER");
   });
-  it("a duo can start, and the Set author scores only if the puzzle wasn't instant", () => {
+  it("a duo can start and play a round", () => {
     const sim = new Sim();
     sim.act({ type: "create", code: "BCDF" });
     sim.act({ type: "join", playerId: "p1", token: "tok-p1-xxxx", name: "Ana", avatar: "🦊" });
     sim.act({ type: "join", playerId: "p2", token: "tok-p2-xxxx", name: "Ben", avatar: "🦊" });
-    sim.act({ type: "settings", playerId: "p1", fake: false, set: true, rounds: 5 });
+    sim.act({ type: "settings", playerId: "p1", fake: false, rounds: 3 });
     expect(sim.act({ type: "start", playerId: "p1", items, seed: 2 }).error).toBeUndefined();
-    for (const id of ["p1", "p2"]) {
-      sim.act({ type: "prep", playerId: id, slot: 0, text: `Duo phrase one ${id}` });
-      sim.act({ type: "prep", playerId: id, slot: 1, text: `Duo phrase two ${id}` });
-    }
-    while (!(sim.s.round!.type === "set" && sim.s.phase === "play")) sim.next();
-    const author = sim.s.round!.author!;
-    const other = author === "p1" ? "p2" : "p1";
-    sim.next(); // stage 1
-    const before = sim.s.players[author]!.score;
-    sim.act({ type: "guess", playerId: other, text: sim.s.round!.item.text });
+    expect(sim.s.phase).toBe("intro");
+    sim.next();
+    sim.act({ type: "guess", playerId: "p1", text: sim.s.round!.item.text });
+    sim.act({ type: "guess", playerId: "p2", text: sim.s.round!.item.text });
     expect(sim.s.phase).toBe("reveal");
-    expect(sim.s.players[author]!.score - before).toBe(100 * sim.s.round!.multiplier);
   });
 
   it("needs minimum players", () => {
@@ -224,7 +208,7 @@ describe("lobby rules", () => {
     const sim = lobby();
     sim.act({ type: "join", playerId: "p4", token: "tok-p4-xxxx", name: "Dee", avatar: "🦊" });
     sim.act({ type: "leave", playerId: "p4" });
-    sim.act({ type: "settings", playerId: "p1", set: false });
+    sim.act({ type: "settings", playerId: "p1" });
     sim.act({ type: "start", playerId: "p1", items, seed: 1 });
     expect(sim.s.order).toEqual(["p1", "p2", "p3"]);
   });
@@ -244,7 +228,7 @@ describe("lobby rules", () => {
 
 describe("crack rounds", () => {
   it("scores by stage, first bonus, partial credit and final x2", () => {
-    const sim = lobby({ fake: false, set: false, rounds: 5 });
+    const sim = lobby({ fake: false, rounds: 5 });
     sim.act({ type: "start", playerId: "p1", items: items.slice(0, 2), seed: 1 });
     expect(sim.s.plan).toEqual(["crack", "crack"]); // trimmed to pool size
     expect(sim.s.phase).toBe("intro");
@@ -276,7 +260,7 @@ describe("crack rounds", () => {
   });
 
   it("rate limits guesses", () => {
-    const sim = lobby({ fake: false, set: false });
+    const sim = lobby({ fake: false });
     sim.act({ type: "start", playerId: "p1", items, seed: 1 });
     sim.next();
     for (let i = 0; i < 3; i++) sim.act({ type: "guess", playerId: "p2", text: "nope" });
@@ -284,7 +268,7 @@ describe("crack rounds", () => {
   });
 
   it("keeps a disconnected player's seat mid-game and restores on rejoin", () => {
-    const sim = lobby({ fake: false, set: false });
+    const sim = lobby({ fake: false });
     sim.act({ type: "start", playerId: "p1", items, seed: 1 });
     sim.act({ type: "leave", playerId: "p2" });
     expect(sim.s.players.p2!.connected).toBe(false);
@@ -296,7 +280,7 @@ describe("crack rounds", () => {
 
 describe("fake rounds", () => {
   function toWrite() {
-    const sim = lobby({ fake: true, set: false, rounds: 5 });
+    const sim = lobby({ fake: true, rounds: 5 });
     sim.act({ type: "start", playerId: "p1", items, seed: 42 });
     expect(sim.s.plan.slice(0, 2)).toEqual(["crack", "fake"]);
     // play through crack round 1 quickly
@@ -357,7 +341,7 @@ describe("fake rounds", () => {
   });
 
   it("fake rounds prefer short phrases", () => {
-    const sim = lobby({ fake: true, set: false, crack: false, rounds: 3 });
+    const sim = lobby({ fake: true, crack: false, rounds: 3 });
     const long: Item = { id: "long", pack: "idioms", text: "Not the sharpest tool in the shed", hint: "x", aliases: [] };
     sim.act({ type: "start", playerId: "p1", items: [long, ...items], seed: 1 });
     sim.next();
@@ -390,74 +374,18 @@ describe("fake rounds", () => {
   });
 });
 
-describe("prep and set rounds", () => {
-  it("collects phrases, plays a set round, author sits out and scores the sweet spot", () => {
-    const sim = lobby({ fake: false, set: true, rounds: 5 });
+describe("no prep phase", () => {
+  it("starts straight into the first round", () => {
+    const sim = lobby({ rounds: 4 });
     sim.act({ type: "start", playerId: "p1", items, seed: 7 });
-    expect(sim.s.phase).toBe("prep");
-    const v = toView(sim.s, "p2", sim.t);
-    expect(v.prep!.prompts).toHaveLength(2);
-    expect(sim.act({ type: "prep", playerId: "p1", slot: 0, text: "hi" }).error?.code).toBe("BAD_TEXT");
-
-    sim.act({ type: "prep", playerId: "p1", slot: 0, text: "Never trust a pigeon" });
-    sim.act({ type: "prep", playerId: "p1", slot: 1, text: "Coffee before talking" });
-    sim.act({ type: "prep", playerId: "p2", slot: 0, text: "Big hat energy" });
-    sim.act({ type: "prep", playerId: "p2", slot: 1, text: "Mondays are lies" });
-    sim.act({ type: "prep", playerId: "p3", slot: 0, text: "Snack o clock" });
-    expect(sim.s.phase).toBe("prep");
-    sim.act({ type: "prep", playerId: "p3", slot: 1, text: "Dance like nobody's watching" });
-    expect(sim.s.phase).toBe("intro"); // everyone done -> rounds begin
-    expect(sim.s.plan).toEqual(["crack", "set", "crack", "set", "set"]);
-
-    while (!(sim.s.round!.type === "set" && sim.s.phase === "play")) sim.next();
-    const r = sim.s.round!;
-    const author = r.author!;
-    const others = sim.s.order.filter((id) => id !== author);
-    // author sees their own phrase; others don't
-    const words = (id: string) => toView(sim.s, id, sim.t).round!.board.flatMap((t) => (t.kind === "word" ? [t.chars.join("")] : []));
-    expect(words(author).join(" ")).toBe(r.item.text.toUpperCase().replace(/[^A-Z0-9 ]/g, ""));
-    expect(words(others[0]!).join(" ")).not.toBe(words(author).join(" "));
-    expect(sim.act({ type: "guess", playerId: author, text: r.item.text }).state.round!.solves[author]).toBeUndefined();
-
-    const authorBefore = sim.s.players[author]!.score;
-    sim.act({ type: "guess", playerId: others[0]!, text: r.item.text });
-    while (sim.s.phase === "play") sim.next();
-    expect(sim.s.players[author]!.score - authorBefore).toBe(100); // 1 of 2 solved
-  });
-
-  it("author bonus ignores kicked solvers", () => {
-    const sim = new Sim();
-    sim.act({ type: "create", code: "BCDF" });
-    for (const id of ["p1", "p2", "p3", "p4"]) sim.act({ type: "join", playerId: id, token: `tok-${id}-xxxx`, name: id, avatar: "🦊" });
-    sim.act({ type: "settings", playerId: "p1", fake: false, set: true, rounds: 5 });
-    sim.act({ type: "start", playerId: "p1", items, seed: 9 });
-    for (const id of ["p1", "p2", "p3", "p4"]) {
-      sim.act({ type: "prep", playerId: id, slot: 0, text: `Phrase number one ${id}` });
-      sim.act({ type: "prep", playerId: id, slot: 1, text: `Phrase number two ${id}` });
-    }
-    while (!(sim.s.round!.type === "set" && sim.s.phase === "play")) sim.next();
-    const author = sim.s.round!.author!;
-    const [s1, s2] = sim.s.order.filter((id) => id !== author && id !== "p1");
-    sim.act({ type: "guess", playerId: s1!, text: sim.s.round!.item.text });
-    sim.act({ type: "guess", playerId: s2!, text: sim.s.round!.item.text });
-    const before = sim.s.players[author]!.score;
-    sim.act({ type: "kick", playerId: "p1", target: s2! });
-    while (sim.s.phase === "play") sim.next();
-    // 1 remaining solver out of 2 remaining non-authors -> sweet spot
-    expect(sim.s.players[author]!.score - before).toBe(100);
-  });
-
-  it("author gets nothing if everyone solves", () => {
-    const sim = lobby({ fake: false, set: true, rounds: 5 });
-    sim.act({ type: "start", playerId: "p1", items, seed: 3 });
-    sim.next(); // prep times out: only p1 wrote one phrase
-    expect(sim.s.plan.filter((t) => t === "set")).toHaveLength(0);
+    expect(sim.s.phase).toBe("intro");
+    expect(sim.s.plan.every((t) => t === "crack" || t === "fake")).toBe(true);
   });
 });
 
 describe("view privacy", () => {
   it("never leaks the answer during play", () => {
-    const sim = lobby({ fake: false, set: false });
+    const sim = lobby({ fake: false });
     sim.act({ type: "start", playerId: "p1", items: items.slice(0, 1), seed: 1 });
     expect(JSON.stringify(toView(sim.s, "p2", sim.t))).not.toMatch(/cake/i);
     sim.next();
@@ -467,7 +395,7 @@ describe("view privacy", () => {
   });
 
   it("shows my locked words fully, others only see my progress count", () => {
-    const sim = lobby({ fake: false, set: false });
+    const sim = lobby({ fake: false });
     sim.act({ type: "start", playerId: "p1", items: items.slice(0, 1), seed: 1 });
     sim.next();
     sim.act({ type: "guess", playerId: "p1", text: "cake" });
@@ -479,9 +407,11 @@ describe("view privacy", () => {
   });
 
   it("stage screen view has no personal data", () => {
-    const sim = lobby({ fake: false, set: true });
+    const sim = lobby({ fake: false });
     sim.act({ type: "start", playerId: "p1", items, seed: 1 });
+    sim.next();
     const v = toView(sim.s, "", sim.t);
-    expect(v.prep).toBeNull();
+    expect(v.round!.mySolve).toBeNull();
+    expect(v.round!.myFake).toBeNull();
   });
 });

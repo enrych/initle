@@ -32,10 +32,9 @@ const SPEEDS: { id: Exclude<Speed, "custom">; label: string; hint: string }[] = 
 ];
 
 const TIMER_ROWS: { key: keyof Timers; label: string; hint: string }[] = [
-  { key: "stageMs", label: "Each reveal", hint: "Crack & Set: time between new letters" },
+  { key: "stageMs", label: "Each reveal", hint: "Crack it: time between new letters" },
   { key: "writeMs", label: "Writing fakes", hint: "Fake it: time to write" },
   { key: "voteMs", label: "Voting", hint: "Fake it: time to vote" },
-  { key: "prepMs", label: "Prep", hint: "Writing puzzles before the game" },
 ];
 
 function Section({ title, children, note }: { title: string; children: React.ReactNode; note?: string }) {
@@ -68,9 +67,9 @@ export function GameSettings({ view, send, canEdit, onAddPack }: { view: View; s
     send({ type: "settings", packs: next });
   };
 
-  const toggleType = (t: "crack" | "fake" | "set") => {
-    const next = { crack: st.crack, fake: st.fake, set: st.set, [t]: !st[t] };
-    if (!next.crack && !next.fake && !next.set) return toast("Keep at least one round type", "bad");
+  const toggleType = (t: "crack" | "fake") => {
+    const next = { crack: st.crack, fake: st.fake, [t]: !st[t] };
+    if (!next.crack && !next.fake) return toast("Keep at least one round type", "bad");
     send({ type: "settings", [t]: !st[t] });
   };
 
@@ -80,9 +79,9 @@ export function GameSettings({ view, send, canEdit, onAddPack }: { view: View; s
         <p className="rounded-xl border-2 border-outline bg-set px-3 py-2 text-sm font-extrabold text-outline">Changes apply from the next round. Timers apply from the next phase.</p>
       )}
 
-      <Section title="Round types" note={st.set && inGame && view.phase !== "prep" ? "Set it rounds only use phrases written during Prep." : undefined}>
-        <div className="grid grid-cols-3 gap-2">
-          {(["crack", "fake", "set"] as const).map((t) => {
+      <Section title="Round types">
+        <div className="grid grid-cols-2 gap-2">
+          {(["crack", "fake"] as const).map((t) => {
             const on = st[t];
             const m = ROUND_META[t];
             return (
@@ -93,7 +92,7 @@ export function GameSettings({ view, send, canEdit, onAddPack }: { view: View; s
                 onClick={() => toggleType(t)}
                 className={cn(
                   "flex flex-col items-center gap-1 rounded-2xl border-[3px] border-outline px-2 py-3 font-display text-lg transition",
-                  on ? cn(m.bg, t === "set" ? "text-outline" : "text-white", "shadow-[0_4px_0_var(--color-outline)] -translate-y-0.5") : "bg-bg-deep text-muted line-through decoration-2",
+                  on ? cn(m.bg, "text-white", "shadow-[0_4px_0_var(--color-outline)] -translate-y-0.5") : "bg-bg-deep text-muted line-through decoration-2",
                 )}
               >
                 <span className="text-2xl no-underline" aria-hidden>

@@ -8,7 +8,7 @@ import { Button, ROUND_META, Stamp } from "../components/ui";
 import { confetti } from "../lib/confetti";
 import { useCountdown } from "../lib/clock";
 import { cn } from "../lib/cn";
-import { useGameEvent, usePlayer, useRoom } from "../lib/room";
+import { useGameEvent, useRoom } from "../lib/room";
 import { sfx } from "../lib/sound";
 
 const STAGE_LABELS = ["Initials", "Word lengths", "Hint", "Last letters", "Half the letters"];
@@ -27,8 +27,6 @@ export function PlayScreen() {
   const { view, send, offset } = useRoom();
   const r = view.round!;
   const meta = ROUND_META[r.type];
-  const isAuthor = r.author === view.me;
-  const author = usePlayer(r.author);
   const [text, setText] = useState("");
   const [shake, setShake] = useState(0);
   const [burst, setBurst] = useState<number | null>(null);
@@ -47,8 +45,8 @@ export function PlayScreen() {
   }, [r.stage]);
 
   useEffect(() => {
-    if (!isAuthor && !solved) inputRef.current?.focus();
-  }, [isAuthor, solved, r.index]);
+    if (!solved) inputRef.current?.focus();
+  }, [solved, r.index]);
 
   useGameEvent((e) => {
     if (e.type === "guess-result") {
@@ -86,8 +84,6 @@ export function PlayScreen() {
     lastGuess.current = t;
     send({ type: "guess", text: t });
   };
-
-  const solvedCount = view.players.filter((p) => p.ready && p.id !== r.author).length;
 
   return (
     <div className="flex flex-1 flex-col gap-5">
@@ -130,20 +126,7 @@ export function PlayScreen() {
         </p>
       </div>
 
-      {isAuthor ? (
-        <div className="panel bg-set p-5 text-center text-outline">
-          <p className="font-display text-2xl">This is your puzzle!</p>
-          <p className="mt-1 text-sm font-bold">
-            {view.players.filter((p) => p.id !== r.author).length === 1 ? (
-              <>You get {CONFIG.SET_AUTHOR_POINTS * r.multiplier} if they crack it, but not on the very first stage.</>
-            ) : (
-              <>
-                You get {CONFIG.SET_AUTHOR_POINTS * r.multiplier} per solver, but only if <b>some, not all</b> crack it. {solvedCount} solved so far.
-              </>
-            )}
-          </p>
-        </div>
-      ) : solved ? (
+      {solved ? (
         <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="panel bg-good p-5 text-center text-outline">
           <p className="font-display text-3xl">Cracked it! +{r.mySolve!.points}</p>
           <p className="mt-1 text-sm font-bold opacity-75">Solved at stage {r.mySolve!.stage + 1}. Watch the others sweat.</p>
@@ -167,7 +150,7 @@ export function PlayScreen() {
         </form>
       )}
 
-      {mine.length > 0 && !isAuthor && (
+      {mine.length > 0 && (
         <ol className="space-y-1" aria-label="Your guesses this round">
           {mine
             .slice()
@@ -182,8 +165,7 @@ export function PlayScreen() {
       )}
 
       <div className="mt-auto">
-        <PlayerStrip players={view.players} me={view.me} wordCount={r.wordCount} exclude={r.author} />
-        {author && !isAuthor && <p className="mt-2 text-center text-xs text-muted">Puzzle by {author.avatar} {author.name}</p>}
+        <PlayerStrip players={view.players} me={view.me} wordCount={r.wordCount} />
       </div>
 
       <AnimatePresence>

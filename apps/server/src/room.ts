@@ -44,6 +44,11 @@ export class Room extends Server<Env> {
       // Merge with defaults so rooms saved by an older version gain new fields.
       const defaults = initialRoom(this.name);
       this.state = { ...defaults, ...saved.room, settings: { ...defaults.settings, ...saved.room.settings } };
+      // Rooms saved before the Set round was removed: a game stuck in its old Prep phase goes back to the lobby.
+      if ((this.state.phase as string) === "prep") {
+        this.state = { ...this.state, phase: "lobby", deadline: null, round: null, plan: [], pool: [], paused: null };
+      }
+      if (this.state.round && (this.state.round.type as string) === "set") this.state = { ...this.state, phase: "lobby", deadline: null, round: null, plan: [], pool: [], paused: null };
       this.gameStartedAt = saved.gameStartedAt;
     } else {
       this.state = initialRoom(this.name);
@@ -144,7 +149,6 @@ export class Room extends Server<Env> {
         }
         return;
       }
-      case "prep":
       case "guess":
       case "fake":
       case "vote":

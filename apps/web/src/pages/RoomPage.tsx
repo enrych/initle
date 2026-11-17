@@ -19,7 +19,6 @@ import { FinalScreen } from "../screens/Final";
 import { IntroScreen } from "../screens/Intro";
 import { LobbyScreen } from "../screens/Lobby";
 import { PlayScreen } from "../screens/Play";
-import { PrepScreen } from "../screens/Prep";
 import { RevealScreen } from "../screens/Reveal";
 import { ScoreboardScreen } from "../screens/Scoreboard";
 import { VoteScreen, WriteScreen } from "../screens/Fake";
@@ -27,8 +26,6 @@ import { NameAvatarPicker } from "./Home";
 
 export function phaseTotal(view: View): number {
   switch (view.phase) {
-    case "prep":
-      return view.settings.timers.prepMs;
     case "intro":
       return CONFIG.INTRO_MS;
     case "play":
@@ -208,7 +205,7 @@ function RoomShell() {
   const inGame = view.phase !== "lobby" && view.phase !== "final";
   const canPause = isHost && inGame && (view.deadline !== null || !!view.paused);
   const untimed = view.settings.speed === "untimed";
-  const canNext = isHost && !view.paused && (["prep", "intro", "reveal", "scoreboard"].includes(view.phase) || (untimed && ["write", "vote"].includes(view.phase)));
+  const canNext = isHost && !view.paused && (["intro", "reveal", "scoreboard"].includes(view.phase) || (untimed && ["write", "vote"].includes(view.phase)));
   const closeMenu = (fn: () => void) => () => {
     setMenu(false);
     fn();
@@ -248,15 +245,12 @@ function RoomShell() {
     if (greeted.current) return;
     greeted.current = true;
     if (view.round && inGame) toast(`You joined in round ${view.round.index + 1} of ${view.round.total}. Jump in!`, "info", 4000);
-    else if (view.phase === "prep") toast("The game is starting: write your two phrases!", "info", 4000);
-  }, [view.round, inGame, view.phase]);
+  }, [view.round, inGame]);
 
   const screen = (() => {
     switch (view.phase) {
       case "lobby":
         return <LobbyScreen />;
-      case "prep":
-        return <PrepScreen />;
       case "intro":
         return <IntroScreen />;
       case "play":
@@ -306,9 +300,9 @@ function RoomShell() {
             </button>
           </div>
         </div>
-        {(r && view.phase !== "final" && view.phase !== "lobby") || view.phase === "prep" ? (
+        {r && view.phase !== "final" && view.phase !== "lobby" ? (
           <div className="flex h-11 items-center gap-2 border-t-2 border-outline/60 bg-bg-deep/50 px-4">
-            {r && view.phase !== "prep" ? (
+            {r ? (
               <>
                 <span className="font-display text-base tabular-nums text-muted">
                   Round {r.index + 1}/{r.total}
@@ -316,16 +310,14 @@ function RoomShell() {
                 <RoundBadge type={r.type} />
                 {r.multiplier > 1 && <span className="rounded-lg border-2 border-outline bg-set px-1.5 font-display text-sm text-outline">×{r.multiplier}</span>}
               </>
-            ) : (
-              <span className="font-display text-base text-muted">Prep · writing puzzles</span>
-            )}
+            ) : null}
             <div className="ml-auto flex items-center gap-1.5">
               <button onClick={() => setHowTo(true)} className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-outline bg-surface-2 font-display text-sm" aria-label="How to play">
                 ?
               </button>
               {canNext && (
-                <button onClick={() => send({ type: "next" })} className="btn3d flex h-8 items-center rounded-xl bg-set px-2.5 font-display text-sm text-outline" aria-label={view.phase === "prep" ? "Start now" : "Next: skip the wait"}>
-                  {view.phase === "prep" ? "Start now ▸" : "Next ▸"}
+                <button onClick={() => send({ type: "next" })} className="btn3d flex h-8 items-center rounded-xl bg-set px-2.5 font-display text-sm text-outline" aria-label="Next: skip the wait">
+                  Next ▸
                 </button>
               )}
             </div>
@@ -490,8 +482,6 @@ function PhaseAnnouncer() {
     switch (view.phase) {
       case "lobby":
         return "In the lobby.";
-      case "prep":
-        return "Prep: write two phrases about your group.";
       case "intro":
         return r ? `Round ${r.index + 1} of ${r.total}: ${ROUND_META[r.type].label}.` : "";
       case "play":

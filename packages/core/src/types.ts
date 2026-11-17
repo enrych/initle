@@ -1,7 +1,7 @@
 /** Built-in pack ids are short words; custom packs are "c_" + id. */
 export type PackId = string;
 
-export type RoundType = "crack" | "fake" | "set";
+export type RoundType = "crack" | "fake";
 
 export type Item = {
   id: string;
@@ -13,7 +13,6 @@ export type Item = {
 
 export type Phase =
   | "lobby"
-  | "prep"
   | "intro"
   | "play"
   | "write"
@@ -21,8 +20,6 @@ export type Phase =
   | "reveal"
   | "scoreboard"
   | "final";
-
-export type PrepSlot = { prompt: number; text: string | null };
 
 export type Player = {
   id: string;
@@ -35,11 +32,9 @@ export type Player = {
   joinedAt: number;
   /** Timestamps of recent guesses, for rate limiting. */
   guessTimes: number[];
-  /** Prep phrases for Set rounds (private to the author until played). */
-  prep: PrepSlot[];
   /** Award counters for end-of-game titles. */
   lastReact: number;
-  stats: { solves: number; firstSolves: number; fooled: number; foundReal: number; setPoints: number; fastest: number | null };
+  stats: { solves: number; firstSolves: number; fooled: number; foundReal: number; fastest: number | null };
 };
 
 export type Solve = { stage: number; order: number; points: number; at: number };
@@ -50,10 +45,6 @@ export type RoundState = {
   index: number; // 0-based
   type: RoundType;
   item: Item;
-  /** Set rounds: the player who wrote the phrase. */
-  author: string | null;
-  /** Set rounds: prompt index the phrase answers. */
-  prompt: number | null;
   startedAt: number;
   stage: number; // 0..STAGES-1
   multiplier: number;
@@ -73,7 +64,6 @@ export type Settings = {
   /** Which round types are in the mix (at least one is always on). */
   crack: boolean;
   fake: boolean;
-  set: boolean;
   family: boolean;
   speed: import("./config").Speed;
   timers: import("./config").Timers;
@@ -81,8 +71,6 @@ export type Settings = {
 
 /** Set while the host has paused: how much time the current phase had left. */
 export type Paused = { since: number; remaining: number | null; auto: boolean };
-
-export type SetEntry = { author: string; prompt: number; text: string };
 
 export type Room = {
   code: string;
@@ -99,7 +87,6 @@ export type Room = {
   round: RoundState | null;
   plan: RoundType[];
   pool: Item[];
-  setQueue: SetEntry[];
   seed: number;
   /** Scores before the last reveal, for scoreboard deltas. */
   prevScores: Record<string, number>;
@@ -123,7 +110,6 @@ export type Action =
       rounds?: number;
       crack?: boolean;
       fake?: boolean;
-      set?: boolean;
       family?: boolean;
       speed?: import("./config").Speed;
       timers?: Partial<import("./config").Timers>;
@@ -136,7 +122,6 @@ export type Action =
   | { type: "end"; playerId: string }
   | { type: "host"; playerId: string; target: string }
   | { type: "start"; playerId: string; items: Item[]; seed: number; packNames?: Record<PackId, string> }
-  | { type: "prep"; playerId: string; slot: number; text: string }
   | { type: "guess"; playerId: string; text: string }
   | { type: "fake"; playerId: string; text: string }
   | { type: "vote"; playerId: string; option: string }
@@ -152,7 +137,7 @@ export type GameEvent =
   | { type: "solve"; playerId: string; stage: number; first: boolean }
   | { type: "reaction"; playerId: string; emoji: string }
   | { type: "kicked"; playerId: string }
-  | { type: "accepted"; to: string; what: "prep" | "fake" | "vote"; slot?: number };
+  | { type: "accepted"; to: string; what: "fake" | "vote"; slot?: number };
 
 export type ErrorCode =
   | "NOT_HOST"
@@ -198,7 +183,7 @@ export type ViewPlayer = {
   host: boolean;
   /** Words locked during play. */
   progress: number;
-  /** Done with the current phase's task (solved / prepped / wrote / voted). */
+  /** Done with the current phase's task (solved / wrote / voted). */
   ready: boolean;
 };
 
@@ -216,7 +201,6 @@ export type View = {
   paused: Paused | null;
   serverNow: number;
   players: ViewPlayer[];
-  prep: null | { prompts: { prompt: string; text: string | null }[] };
   round: null | {
     index: number;
     total: number;
@@ -224,7 +208,6 @@ export type View = {
     stage: number;
     stages: number;
     pack: string;
-    author: string | null;
     hint: string | null;
     wordCount: number;
     multiplier: number;

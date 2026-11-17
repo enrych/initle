@@ -174,7 +174,7 @@ function SettingsSummary() {
   const { view } = useRoom();
   const st = view.settings;
   const host = view.players.find((p) => p.host);
-  const types = (["crack", "fake", "set"] as const).filter((t) => st[t]).map((t) => ({ crack: "Crack it", fake: "Fake it", set: "Set it" })[t]);
+  const types = (["crack", "fake"] as const).filter((t) => st[t]).map((t) => ({ crack: "Crack it", fake: "Fake it" })[t]);
   const speed = st.speed === "untimed" ? "No timer" : st.speed === "custom" ? `${Math.round(st.timers.stageMs / 1000)}s reveals` : st.speed[0]!.toUpperCase() + st.speed.slice(1);
   const builtIn = usePacks();
   const packs = st.packs.map((id) => view.packNames[id] ?? builtIn.find((p) => p.id === id)?.name ?? (id.startsWith("c_") ? "Custom pack" : id));

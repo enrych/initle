@@ -30,7 +30,6 @@ export function RevealBody({ view, big }: { view: View; big?: boolean }) {
   const rev = view.reveal!;
   const meta = ROUND_META[r.type];
   const byId = new Map(view.players.map((p) => [p.id, p]));
-  const author = r.author ? byId.get(r.author) : null;
   const ordered = rev.options ? [...rev.options.filter((o) => !o.real).sort((a, b) => a.voters.length - b.voters.length), ...rev.options.filter((o) => o.real)] : null;
 
   useEffect(() => {
@@ -44,7 +43,7 @@ export function RevealBody({ view, big }: { view: View; big?: boolean }) {
   return (
     <div className={cn("flex flex-col gap-5", big && "gap-8")}>
       <div className="text-center">
-        <p className={cn("inline-block -rotate-2 rounded-lg border-[3px] border-outline px-3 py-0.5 font-display tracking-wide shadow-[0_3px_0_var(--color-outline)]", meta.bg, r.type === "set" ? "text-outline" : "text-white", big ? "text-2xl" : "text-base")}>
+        <p className={cn("inline-block -rotate-2 rounded-lg border-[3px] border-outline px-3 py-0.5 font-display tracking-wide shadow-[0_3px_0_var(--color-outline)]", meta.bg, "text-white", big ? "text-2xl" : "text-base")}>
           {rev.skipped ? "Round skipped" : "The answer was…"}
         </p>
         <motion.h1
@@ -55,7 +54,7 @@ export function RevealBody({ view, big }: { view: View; big?: boolean }) {
         >
           <TypeOut text={rev.answer} />
         </motion.h1>
-        <p className={cn("mt-3 font-bold text-muted", big && "text-2xl")}>{r.type === "set" && author ? `${author.avatar} ${author.name} wrote this · “${rev.hint}”` : rev.hint}</p>
+        <p className={cn("mt-3 font-bold text-muted", big && "text-2xl")}>{rev.hint}</p>
       </div>
 
       {ordered && !rev.skipped ? (
@@ -104,9 +103,7 @@ export function RevealBody({ view, big }: { view: View; big?: boolean }) {
             const label =
               r.type === "fake"
                 ? null
-                : res.id === r.author
-                  ? "author"
-                  : res.stage !== null
+                : res.stage !== null
                     ? `stage ${res.stage + 1}`
                     : res.locked > 0
                       ? `${res.locked} word${res.locked > 1 ? "s" : ""}`

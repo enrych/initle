@@ -76,14 +76,10 @@ for (const [i, b] of bots.entries()) {
 const [host, b2, b3] = bots;
 assert(host.view.hostId === host.view.me, "first joiner is host");
 
-host.send({ type: "settings", packs: ["idioms", custom.body.id], rounds: 5, fake: true, set: true });
+host.send({ type: "settings", packs: ["idioms", custom.body.id], rounds: 5, fake: true });
 await until(() => host.view.settings.packs.includes(custom.body.id), 5000, "settings");
 host.send({ type: "start" });
-await until(() => host.view.phase === "prep", 5000, "prep");
-
-const phrases = [["Never trust pigeons", "Coffee then talk"], ["Big hat energy", "Mondays are lies"], ["Snack o clock", "Dance it out"]];
-bots.forEach((b, i) => phrases[i].forEach((text, slot) => b.send({ type: "prep", slot, text })));
-await until(() => host.view.phase === "intro", 5000, "intro after prep");
+await until(() => host.view.phase === "intro", 5000, "intro");
 console.log("plan:", host.view.round.total, "rounds");
 
 let rounds = 0;
