@@ -1,4 +1,5 @@
 import type { BoardTile, PackSummary } from "@initle/core/client";
+import { getIdentity } from "./identity";
 
 export class ApiError extends Error {}
 
@@ -47,5 +48,5 @@ export const api = {
     call<{ answer: string; hint: string; board: BoardTile[] }>("/api/solo/giveup", { method: "POST", body: JSON.stringify({ id, locked }) }),
   daily: (day?: number) => call<DailyPuzzle>(`/api/daily${day ? `?day=${day}` : ""}`),
   dailyGuess: (body: { day: number; guess: string; locked: number[]; stage: number }) =>
-    call<DailyGuessResult>("/api/daily/guess", { method: "POST", body: JSON.stringify(body) }),
+    call<DailyGuessResult>("/api/daily/guess", { method: "POST", body: JSON.stringify(body), headers: { "x-initle-token": getIdentity().token } }),
 };

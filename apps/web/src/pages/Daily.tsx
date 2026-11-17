@@ -13,6 +13,8 @@ import { STREAK_MILESTONES, getRecord, streakStatus, updateRecord, type DailyRec
 import { sfx } from "../lib/sound";
 import { confetti } from "../lib/confetti";
 import { store } from "../lib/storage";
+import { cachedMe, ensureProfile, friendUrl, social, type FriendRow } from "../lib/social";
+import { FriendsToday } from "./Friends";
 
 type Attempt = { guess: string; newlyLocked: number };
 type DayState = {
@@ -80,6 +82,8 @@ export function DailyPage() {
     if (!st || !puzzle || busy || !text.trim()) return;
     setBusy(true);
     try {
+      // Register this player first so the server counts the guess for leaderboards. Never blocks play.
+      if (puzzle.day === puzzle.today) await ensureProfile().catch(() => null);
       const res = await api.dailyGuess({ day: st.day, guess: text.trim(), locked: st.locked, stage: st.stage });
       const attempt = { guess: text.trim(), newlyLocked: res.newlyLocked };
       setText("");
@@ -244,10 +248,24 @@ function DailyResult({ puzzle, st, record, countdown }: { puzzle: DailyPuzzle; s
   const total = st.stats ? st.stats.s0 + st.stats.s1 + st.stats.s2 + st.stats.s3 + st.stats.s4 + st.stats.failed : 0;
   const dist = st.stats ? [st.stats.s0, st.stats.s1, st.stats.s2, st.stats.s3, st.stats.s4, st.stats.failed] : [];
   const max = Math.max(1, ...dist);
+  const isToday = puzzle.day === puzzle.today;
+  const [friends, setFriends] = useState<FriendRow[] | null>(null);
+  useEffect(() => {
+    if (!isToday) return;
+    ensureProfile()
+      .then(() => social.friends(puzzle.day))
+      .then((f) => setFriends(f.players))
+      .catch(() => setFriends(null));
+  }, [isToday, puzzle.day]);
+  const me = cachedMe();
   const share = async () => {
-    const res = await shareOrCopy({ text: dailyShareText(puzzle.day, solvedStage, puzzle.stages, record.lastDay === puzzle.day ? record.streak : 0), url: `${location.origin}/daily` });
+    const grid = dailyShareText(puzzle.day, solvedStage, puzzle.stages, record.lastDay === puzzle.day ? record.streak : 0);
+    const res = await shareOrCopy(
+      me && isToday ? { text: `${grid}\nCan you beat me?`, url: friendUrl(me.id) } : { text: grid, url: `${location.origin}/daily` },
+    );
     if (res === "copied") toast("Result copied", "good");
   };
+  const hasFriends = (friends?.length ?? 0) > 1;
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
       <div className="text-center">
@@ -275,6 +293,22 @@ function DailyResult({ puzzle, st, record, countdown }: { puzzle: DailyPuzzle; s
             </div>
           ))}
         </div>
+      )}
+
+      {isToday && friends && (
+        <Card className="space-y-3">
+          <div className="flex items-baseline justify-between">
+            <p className="font-display text-xl">{hasFriends ? "Friends today" : "Play against friends"}</p>
+            <Link to="/friends" className="text-sm font-bold text-muted underline-offset-4 hover:text-ink hover:underline">
+              Leaderboards →
+            </Link>
+          </div>
+          {hasFriends ? (
+            <FriendsToday rows={friends} limit={6} />
+          ) : (
+            <p className="text-sm text-muted">Share your result: anyone who opens your link becomes your friend, and you'll see each other's scores and streaks here.</p>
+          )}
+        </Card>
       )}
 
       {st.stats && total > 0 && (

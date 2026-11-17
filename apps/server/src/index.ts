@@ -21,6 +21,7 @@ import {
 } from "@initle/core";
 import { getServerByName, routePartykitRequest } from "partyserver";
 import { getDailyStats, insertCustomPack, loadCustomPacks, recordDaily, reportPack } from "./db";
+import { FRIEND_CODE_RE, addFriend, findPlayer, friendsBoard, globalBoard, liveStreak, publicProfile, readToken, removeFriend, trackDailyGuess, upsertPlayer, type Player } from "./social";
 
 export { Room } from "./room";
 
@@ -164,6 +165,13 @@ async function dailyGuess(env: Env, req: Request, ctx: ExecutionContext): Promis
   const result = evaluateGuess(item.text, item.aliases, cleanText(guess), locked);
   const nowLocked = [...locked, ...result.newlyLocked];
 
+  // Leaderboards: count this guess server-side for today's puzzle (archive days don't count).
+  const token = readToken(req);
+  if (token && day === today()) {
+    const player = await findPlayer(env.DB, token).catch(() => null);
+    if (player) await trackDailyGuess(env.DB, player, day, result.solved).catch((e) => console.error("trackDailyGuess", e));
+  }
+
   const finish = async (solvedStage: number | null) => {
     ctx.waitUntil(recordDaily(env.DB, day, solvedStage).catch(() => {}));
     const stats = await getDailyStats(env.DB, day).catch(() => null);
@@ -266,6 +274,72 @@ async function soloGiveUp(env: Env, req: Request): Promise<Response> {
   return json({ answer: item.text, hint: item.hint, board: buildBoard(item.text, CONFIG.STAGES - 1, new Set(parsed.data.locked), true) });
 }
 
+// ---------- Players, friends, leaderboards ----------
+
+const dayParam = (url: URL) => {
+  const d = Number(url.searchParams.get("day") ?? today());
+  return Number.isInteger(d) && d >= 1 && d <= today() ? d : today();
+};
+
+const meJson = (p: Player) => ({ id: p.id, name: p.name, avatar: p.avatar, hidden: !!p.hidden, streak: liveStreak(p, today()), best: p.best_streak });
+
+async function requirePlayer(env: Env, req: Request): Promise<Player | Response> {
+  const token = readToken(req);
+  if (!token) return error(401, "Missing player token.");
+  return (await findPlayer(env.DB, token)) ?? error(401, "Unknown player. Reload the page.");
+}
+
+async function social(env: Env, req: Request, url: URL): Promise<Response | null> {
+  const { pathname } = url;
+  if (pathname === "/api/me" && req.method === "POST") {
+    const token = readToken(req);
+    if (!token) return error(401, "Missing player token.");
+    const body = (await readJson(req)) as { name?: unknown; avatar?: unknown; hidden?: unknown } | null;
+    if (!body || typeof body.name !== "string" || typeof body.avatar !== "string") return error(400, "Pick a name.");
+    const res = await upsertPlayer(env.DB, token, { name: body.name, avatar: body.avatar, hidden: typeof body.hidden === "boolean" ? body.hidden : undefined });
+    return "error" in res ? error(400, res.error) : json(meJson(res.player));
+  }
+  if (pathname === "/api/me" && req.method === "GET") {
+    const me = await requirePlayer(env, req);
+    return me instanceof Response ? me : json(meJson(me));
+  }
+  const profile = pathname.match(/^\/api\/players\/([A-Z0-9]{6})$/);
+  if (profile && req.method === "GET") {
+    const p = FRIEND_CODE_RE.test(profile[1]!) ? await publicProfile(env.DB, profile[1]!, today()) : null;
+    return p ? json(p) : error(404, "No player with that code.");
+  }
+  if (pathname === "/api/friends" && req.method === "GET") {
+    const me = await requirePlayer(env, req);
+    if (me instanceof Response) return me;
+    const day = dayParam(url);
+    return json({ day, players: await friendsBoard(env.DB, me, day, today()) });
+  }
+  if (pathname === "/api/friends" && req.method === "POST") {
+    const blocked = await limited(env.CREATE_LIMITER, req, "friend");
+    if (blocked) return blocked;
+    const me = await requirePlayer(env, req);
+    if (me instanceof Response) return me;
+    const body = (await readJson(req)) as { code?: unknown } | null;
+    const code = typeof body?.code === "string" ? body.code.trim().toUpperCase() : "";
+    if (!FRIEND_CODE_RE.test(code)) return error(400, "Friend codes are 6 letters and numbers.");
+    const res = await addFriend(env.DB, me, code);
+    return "error" in res ? error(400, res.error) : json(res);
+  }
+  const unfriend = pathname.match(/^\/api\/friends\/([A-Z0-9]{6})$/);
+  if (unfriend && req.method === "DELETE") {
+    const me = await requirePlayer(env, req);
+    if (me instanceof Response) return me;
+    await removeFriend(env.DB, me, unfriend[1]!);
+    return json({ ok: true });
+  }
+  if (pathname === "/api/leaderboard" && req.method === "GET") {
+    const token = readToken(req);
+    const me = token ? await findPlayer(env.DB, token) : null;
+    return json(await globalBoard(env.DB, dayParam(url), today(), me));
+  }
+  return null;
+}
+
 // ---------- Router ----------
 
 export default {
@@ -305,6 +379,9 @@ export default {
         if (pathname === "/api/solo/next" && req.method === "POST") return (await limited(env.GUESS_LIMITER, req, "solo")) ?? (await soloNext(env, req));
         if (pathname === "/api/solo/guess" && req.method === "POST") return (await limited(env.GUESS_LIMITER, req, "solo")) ?? (await soloGuess(env, req));
         if (pathname === "/api/solo/giveup" && req.method === "POST") return await soloGiveUp(env, req);
+
+        const socialRes = await social(env, req, url);
+        if (socialRes) return socialRes;
 
         if (pathname === "/api/health") return json({ ok: true, day: today() });
         return error(404, "Not found");

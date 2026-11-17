@@ -76,6 +76,14 @@ One-time setup in the Cloudflare dashboard:
 
 Every later push to `main` redeploys. Write endpoints are rate-limited per IP by the Workers Rate Limiting binding (`ratelimits` in `wrangler.jsonc`: 20/min for creating rooms and packs, 60/min for Daily guesses). Durable Objects with SQLite storage, D1 and static assets all work on the Workers free plan for early traffic.
 
+## Friends and leaderboards
+
+- Players are identified by the random device token already kept in local storage (sent as `x-initle-token`, stored hashed in `player_tokens`). Others see a public 6-character friend code (`players.id`).
+- `/friends`: today's Daily with friends, friend code and invite link, add by code; Global tab with today's ranking, longest streaks and a "show me on global boards" toggle.
+- `/f/:code`: invite link. Opening it adds both players as friends and drops you into the Daily. The Daily share link is your invite link.
+- Scores are counted by the server (`daily_results`), one result per player per day, today's puzzle only. Ranking: solved, then fewest guesses, then fastest.
+- Code: `apps/server/src/social.ts`, `apps/server/migrations/0002_social.sql`, `apps/web/src/lib/social.ts`, `apps/web/src/pages/Friends.tsx`. Test: `e2e/friends.mjs`.
+
 ## Ads
 
 Ads use Google's H5 Games Ads (Ad Placement API) and are **off by default**. Code: `apps/web/src/lib/ads.ts`.

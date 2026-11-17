@@ -1,11 +1,12 @@
 import type { Item } from "@initle/core";
-import schemaSql from "../migrations/0001_init.sql";
+import initSql from "../migrations/0001_init.sql";
+import socialSql from "../migrations/0002_social.sql";
 
 /**
  * The Worker creates its own tables (idempotent CREATE ... IF NOT EXISTS), once per isolate.
  * No separate migration step is needed in any deploy pipeline, including Cloudflare Workers Builds.
  */
-const STATEMENTS = schemaSql
+const STATEMENTS = `${initSql};\n${socialSql}`
   .split(";")
   .map((s) => s.replace(/--.*$/gm, "").trim())
   .filter(Boolean);

@@ -9,6 +9,8 @@ const StagePage = lazy(() => import("./pages/Stage").then((m) => ({ default: m.S
 const DailyPage = lazy(() => import("./pages/Daily").then((m) => ({ default: m.DailyPage })));
 const SoloPage = lazy(() => import("./pages/Solo").then((m) => ({ default: m.SoloPage })));
 const PackNewPage = lazy(() => import("./pages/Packs").then((m) => ({ default: m.PackNewPage })));
+const FriendsPage = lazy(() => import("./pages/Friends").then((m) => ({ default: m.FriendsPage })));
+const FriendInvitePage = lazy(() => import("./pages/Friends").then((m) => ({ default: m.FriendInvitePage })));
 const PrivacyPage = lazy(() => import("./pages/Privacy").then((m) => ({ default: m.PrivacyPage })));
 const PackLandingPage = lazy(() => import("./pages/Packs").then((m) => ({ default: m.PackLandingPage })));
 
@@ -69,6 +71,8 @@ export const router = createBrowserRouter([
       { path: "/packs/new", element: <PackNewPage /> },
       { path: "/p/:id", element: <PackLandingPage /> },
       { path: "/privacy", element: <PrivacyPage /> },
+      { path: "/friends", element: <FriendsPage /> },
+      { path: "/f/:code", element: <FriendInvitePage /> },
       { path: "*", element: <NotFound /> },
     ],
   },
