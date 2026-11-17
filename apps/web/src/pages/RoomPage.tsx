@@ -10,7 +10,7 @@ import { GameSettings } from "../components/GameSettings";
 import { cn } from "../lib/cn";
 import { motion } from "motion/react";
 import { api } from "../lib/api";
-import { getIdentity, saveIdentity } from "../lib/identity";
+import { getIdentity, saveIdentity, suggestName } from "../lib/identity";
 import { RoomContext, useRoom, useRoomConnection } from "../lib/room";
 import { inviteUrl, shareOrCopy } from "../lib/share";
 import { sfx, sound } from "../lib/sound";
@@ -54,7 +54,7 @@ export function RoomPage() {
   const code = (useParams().code ?? "").toUpperCase();
   const [gate, setGate] = useState<"checking" | "name" | "ready" | "missing">("checking");
   const identity = getIdentity();
-  const [name, setName] = useState(identity.name);
+  const [name, setName] = useState(identity.name || suggestName());
   const [avatar, setAvatar] = useState(identity.avatar);
 
   useEffect(() => {

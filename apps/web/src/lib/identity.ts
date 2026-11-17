@@ -25,3 +25,12 @@ export function saveIdentity(patch: Partial<Omit<Identity, "token">>): Identity 
   store.set(KEY, next);
   return next;
 }
+
+const ADJ = ["Sneaky", "Swift", "Lucky", "Clever", "Brave", "Fuzzy", "Witty", "Sly", "Jolly", "Cosmic", "Spicy", "Sunny", "Quiet", "Wild", "Bold"];
+const NOUN = ["Otter", "Panda", "Falcon", "Mango", "Tiger", "Koala", "Comet", "Pickle", "Raven", "Lemur", "Badger", "Walrus", "Yak", "Gecko", "Moose"];
+
+/** A ready-made nickname (max 13 chars) so new players can start in one tap; they can still edit it. */
+export function suggestName(): string {
+  const pick = <T,>(a: T[]) => a[Math.floor(Math.random() * a.length)]!;
+  return `${pick(ADJ)} ${pick(NOUN)}`;
+}
