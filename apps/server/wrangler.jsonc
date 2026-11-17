@@ -5,6 +5,8 @@
   "compatibility_date": "2026-10-01",
   "observability": { "enabled": true },
   "preview_urls": false,
+  // Public address. The workers.dev URL keeps working as a fallback.
+  "routes": [{ "pattern": "initle.enry.ch", "custom_domain": true }],
   "assets": {
     "directory": "../web/dist",
     "binding": "ASSETS",

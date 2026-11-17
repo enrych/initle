@@ -76,6 +76,18 @@ One-time setup in the Cloudflare dashboard:
 
 Every later push to `main` redeploys. Write endpoints are rate-limited per IP by the Workers Rate Limiting binding (`ratelimits` in `wrangler.jsonc`: 20/min for creating rooms and packs, 60/min for Daily guesses). Durable Objects with SQLite storage, D1 and static assets all work on the Workers free plan for early traffic.
 
+## Ads
+
+Ads use Google's H5 Games Ads (Ad Placement API) and are **off by default**. Code: `apps/web/src/lib/ads.ts`.
+
+- Where: an interstitial between Solo puzzles only. Party rooms, the stage screen and Daily stay ad-free.
+- Ad blockers: if Google's script can't load, ad breaks are skipped instantly and the game carries on.
+- To switch on, once AdSense and H5 Games Ads are approved:
+  1. In the Cloudflare dashboard, Worker `initle` → Settings → Build → Variables, add `VITE_ADSENSE_CLIENT` = your `ca-pub-…` ID.
+  2. Add `apps/web/public/ads.txt` containing `google.com, pub-XXXXXXXXXXXXXXXX, DIRECT, f08c47fec0942fa0` (your ID, without `ca-`).
+  3. Push to `main`.
+- Privacy policy: `/privacy` (`apps/web/src/pages/Privacy.tsx`). EU/UK consent is handled by Google's consent message, set up in AdSense → Privacy & messaging.
+
 ## Content
 
 Built-in packs live in `packages/core/src/packs-data.ts` as `[text, hint, aliases?]` entries. Add entries there and run `pnpm test`: the tests check that every item produces valid initials.

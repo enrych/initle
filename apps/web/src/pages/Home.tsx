@@ -253,6 +253,9 @@ export function Home() {
         <Link to="/packs/new" className="underline-offset-4 hover:text-ink hover:underline">
           Make a custom pack
         </Link>
+        <Link to="/privacy" className="underline-offset-4 hover:text-ink hover:underline">
+          Privacy
+        </Link>
       </nav>
 
       <Modal open={howTo} onClose={() => setHowTo(false)} title="How to play">
