@@ -30,6 +30,10 @@ export function PrivacyPage() {
             Daily results and streaks. Friends see your results. Your nickname and score also appear on global leaderboards unless you turn that off on the Friends page.
           </li>
           <li>
+            <b>Signing in on other devices (optional):</b> if you save a passkey, we store its public key (never your fingerprint or face, which stay on your device). If you create a recovery
+            code, we store only a hash of it.
+          </li>
+          <li>
             <b>Game stats:</b> anonymous totals such as how many people solved today's Daily, and summaries of finished games without names.
           </li>
         </ul>

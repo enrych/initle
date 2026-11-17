@@ -21,6 +21,7 @@ import {
 } from "@initle/core";
 import { getServerByName, routePartykitRequest } from "partyserver";
 import { getDailyStats, insertCustomPack, loadCustomPacks, recordDaily, reportPack } from "./db";
+import { accountStatus, newRecoveryCode, passkeyLoginOptions, passkeyLoginVerify, passkeyRegisterOptions, passkeyRegisterVerify, useRecoveryCode } from "./auth";
 import { FRIEND_CODE_RE, addFriend, findPlayer, friendsBoard, globalBoard, liveStreak, publicProfile, readToken, removeFriend, trackDailyGuess, upsertPlayer, type Player } from "./social";
 
 export { Room } from "./room";
@@ -332,12 +333,53 @@ async function social(env: Env, req: Request, url: URL): Promise<Response | null
     await removeFriend(env.DB, me, unfriend[1]!);
     return json({ ok: true });
   }
+  if (pathname.startsWith("/api/auth/") || pathname === "/api/account") return auth(env, req, url);
   if (pathname === "/api/leaderboard" && req.method === "GET") {
     const token = readToken(req);
     const me = token ? await findPlayer(env.DB, token) : null;
     return json(await globalBoard(env.DB, dayParam(url), today(), me));
   }
   return null;
+}
+
+async function auth(env: Env, req: Request, url: URL): Promise<Response> {
+  const { pathname } = url;
+  const body = req.method === "POST" ? ((await readJson(req)) as Record<string, unknown> | null) : null;
+  const challengeId = typeof body?.challengeId === "string" ? body.challengeId : "";
+
+  // Signing in from a new device: needs only this device's token.
+  if (pathname === "/api/auth/passkey/login/options" || pathname === "/api/auth/passkey/login/verify" || pathname === "/api/auth/recovery/use") {
+    if (req.method !== "POST") return error(405, "Use POST.");
+    const blocked = await limited(env.CREATE_LIMITER, req, "auth");
+    if (blocked) return blocked;
+    const token = readToken(req);
+    if (!token) return error(401, "Missing player token.");
+    const signedIn = async () => {
+      const me = await findPlayer(env.DB, token);
+      return me ? json(meJson(me)) : error(500, "Signed in, but couldn't load your profile.");
+    };
+    if (pathname === "/api/auth/passkey/login/options") return json(await passkeyLoginOptions(env.DB, req));
+    if (pathname === "/api/auth/passkey/login/verify") {
+      if (!challengeId || !body?.response) return error(400, "Bad request.");
+      const res = await passkeyLoginVerify(env.DB, req, token, challengeId, body.response as never);
+      return res.error ? error(400, res.error) : signedIn();
+    }
+    const res = await useRecoveryCode(env.DB, token, typeof body?.code === "string" ? body.code : "");
+    return res.error ? error(400, res.error) : signedIn();
+  }
+
+  // Everything else needs a player.
+  const me = await requirePlayer(env, req);
+  if (me instanceof Response) return me;
+  if (pathname === "/api/account" && req.method === "GET") return json(await accountStatus(env.DB, me));
+  if (pathname === "/api/auth/passkey/register/options" && req.method === "POST") return json(await passkeyRegisterOptions(env.DB, req, me));
+  if (pathname === "/api/auth/passkey/register/verify" && req.method === "POST") {
+    if (!challengeId || !body?.response) return error(400, "Bad request.");
+    const res = await passkeyRegisterVerify(env.DB, req, me, challengeId, body.response as never);
+    return res.error ? error(400, res.error) : json(res);
+  }
+  if (pathname === "/api/auth/recovery" && req.method === "POST") return json({ code: await newRecoveryCode(env.DB, me) });
+  return error(404, "Not found");
 }
 
 // ---------- Router ----------
