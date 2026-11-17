@@ -1,12 +1,13 @@
 /**
  * Google H5 Games Ads (Ad Placement API).
  *
- * Off unless the build sets VITE_ADSENSE_CLIENT (e.g. "ca-pub-1234567890123456").
+ * On by default with Enrych's publisher ID. Set VITE_ADSENSE_CLIENT=off to build without ads.
  * Ads only ever run in Solo and Daily, never in Party rooms or on the stage screen.
  * Ad blockers are fine: if the script never loads, every call resolves at once and the game carries on.
  */
 
-const CLIENT = import.meta.env.VITE_ADSENSE_CLIENT as string | undefined;
+const ENV = import.meta.env.VITE_ADSENSE_CLIENT as string | undefined;
+const CLIENT = ENV === "off" ? undefined : ENV || "ca-pub-4399872503638784";
 
 type AdBreakOptions = {
   type: "preroll" | "start" | "pause" | "next" | "browse" | "reward";
