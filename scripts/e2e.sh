@@ -16,3 +16,4 @@ for _ in $(seq 1 60); do curl -sf "http://localhost:$PORT/api/health" >/dev/null
 node apps/server/scripts/smoke.mjs "http://localhost:$PORT"
 NODE_PATH="$(npm root -g)${NODE_PATH:+:$NODE_PATH}" node e2e/party.mjs "http://localhost:$PORT" "${SHOTS:-}"
 NODE_PATH="$(npm root -g)${NODE_PATH:+:$NODE_PATH}" node e2e/friends.mjs "http://localhost:$PORT" "${SHOTS:-}"
+NODE_PATH="$(npm root -g)${NODE_PATH:+:$NODE_PATH}" node e2e/account.mjs "http://localhost:$PORT" "${SHOTS:-}"

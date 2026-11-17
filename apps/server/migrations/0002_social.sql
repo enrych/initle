@@ -40,3 +40,29 @@ CREATE TABLE IF NOT EXISTS daily_results (
 );
 CREATE INDEX IF NOT EXISTS daily_results_rank ON daily_results(day, done, solved, guesses);
 CREATE INDEX IF NOT EXISTS players_streak ON players(hidden, cur_streak);
+
+-- Passkeys let a player sign in on another device (phase 2).
+CREATE TABLE IF NOT EXISTS passkeys (
+  id TEXT PRIMARY KEY,
+  player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+  public_key TEXT NOT NULL,
+  counter INTEGER NOT NULL DEFAULT 0,
+  transports TEXT NOT NULL DEFAULT '',
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS passkeys_player ON passkeys(player_id);
+
+-- One-time WebAuthn challenges (5 minutes).
+CREATE TABLE IF NOT EXISTS auth_challenges (
+  id TEXT PRIMARY KEY,
+  challenge TEXT NOT NULL,
+  player_id TEXT,
+  expires_at INTEGER NOT NULL
+);
+
+-- Recovery code (hashed). Showing a new one replaces the old.
+CREATE TABLE IF NOT EXISTS recovery_codes (
+  player_id TEXT PRIMARY KEY REFERENCES players(id) ON DELETE CASCADE,
+  code_hash TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);

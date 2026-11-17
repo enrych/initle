@@ -2,7 +2,8 @@ import { CONFIG } from "@initle/core/client";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { toast } from "../components/Toasts";
-import { Button, Card, Logo, Segmented, Spinner, Toggle } from "../components/ui";
+import { Button, Card, Logo, Modal, Segmented, Spinner, Toggle } from "../components/ui";
+import { accountStatus, addPasskey, isCancel, newRecoveryCode, passkeysSupported, signInWithPasskey, signInWithRecoveryCode, type AccountStatus } from "../lib/auth";
 import { cn } from "../lib/cn";
 import { copyText, shareOrCopy } from "../lib/share";
 import { ensureProfile, friendUrl, rankFriends, resultLabel, social, type FriendRow, type Leaderboard, type Me, type Profile } from "../lib/social";
@@ -53,6 +54,137 @@ export function FriendsToday({ rows, limit }: { rows: FriendRow[]; limit?: numbe
 
 export function inviteText(me: Me) {
   return `Add me on Initle and let's see who cracks today's puzzle first. My code: ${me.id}`;
+}
+
+/** Phase 2: keep this player across devices. */
+function AccountCard({ me, onSignedIn }: { me: Me; onSignedIn: () => void }) {
+  const [status, setStatus] = useState<AccountStatus | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [code, setCode] = useState<string | null>(null);
+  const [signIn, setSignIn] = useState(false);
+  const [recovery, setRecovery] = useState("");
+  const supported = passkeysSupported();
+
+  useEffect(() => {
+    accountStatus().then(setStatus).catch(() => {});
+  }, [me.id]);
+
+  const run = async (key: string, fn: () => Promise<void>) => {
+    setBusy(key);
+    try {
+      await fn();
+    } catch (e) {
+      if (!isCancel(e)) toast((e as Error).message, "bad");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const saved = !!status && (status.passkeys > 0 || status.recoveryCode);
+  const switchWarning = "This device will switch to that player. Friends and streaks from the profile it has now aren't carried over.";
+
+  return (
+    <Card className="space-y-3">
+      <div>
+        <h2 className="font-display text-xl">{saved ? "✅ Progress saved" : "Save your progress"}</h2>
+        <p className="text-sm text-muted">
+          {saved
+            ? `Sign in on another phone or computer to keep ${me.name}, your friends and your streak.`
+            : "Right now your friends and streak live on this device only. Save them so you can sign in anywhere."}
+        </p>
+      </div>
+      {status && (
+        <div className="flex flex-col gap-2">
+          {supported && (
+            <Button
+              variant={status.passkeys ? "secondary" : "primary"}
+              disabled={busy !== null}
+              onClick={() =>
+                run("passkey", async () => {
+                  await addPasskey();
+                  setStatus(await accountStatus());
+                  toast("Passkey saved", "good");
+                })
+              }
+            >
+              {busy === "passkey" ? <Spinner /> : status.passkeys ? "Add another passkey" : "Save with a passkey"}
+            </Button>
+          )}
+          <Button variant="secondary" disabled={busy !== null} onClick={() => run("code", async () => setCode(await newRecoveryCode()))}>
+            {busy === "code" ? <Spinner /> : status.recoveryCode ? "Get a new recovery code" : "Get a recovery code"}
+          </Button>
+        </div>
+      )}
+      <button className="text-sm font-bold text-muted underline-offset-4 hover:text-ink hover:underline" onClick={() => setSignIn((v) => !v)}>
+        Already played on another device? Sign in
+      </button>
+      {signIn && (
+        <div className="space-y-2 rounded-2xl border-[3px] border-outline bg-bg-deep p-3">
+          <p className="text-xs text-muted">{switchWarning}</p>
+          {supported && (
+            <Button
+              className="w-full"
+              disabled={busy !== null}
+              onClick={() =>
+                run("signin", async () => {
+                  const who = await signInWithPasskey();
+                  toast(`Signed in as ${who.name}`, "good");
+                  setSignIn(false);
+                  onSignedIn();
+                })
+              }
+            >
+              {busy === "signin" ? <Spinner /> : "Sign in with a passkey"}
+            </Button>
+          )}
+          <form
+            className="flex gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void run("recovery", async () => {
+                const who = await signInWithRecoveryCode(recovery);
+                toast(`Signed in as ${who.name}`, "good");
+                setSignIn(false);
+                setRecovery("");
+                onSignedIn();
+              });
+            }}
+          >
+            <input
+              value={recovery}
+              onChange={(e) => setRecovery(e.target.value.toUpperCase())}
+              placeholder="XXXX-XXXX-XXXX-XXXX"
+              aria-label="Recovery code"
+              autoComplete="off"
+              autoCapitalize="characters"
+              className="h-12 w-full rounded-2xl field px-3 text-center font-display tracking-wider"
+            />
+            <Button type="submit" variant="secondary" size="sm" className="h-12" disabled={busy !== null || recovery.replace(/[^A-Z0-9]/g, "").length !== 16}>
+              {busy === "recovery" ? <Spinner /> : "Use"}
+            </Button>
+          </form>
+        </div>
+      )}
+      <Modal
+        open={code !== null}
+        onClose={() => {
+          setCode(null);
+          accountStatus().then(setStatus).catch(() => {});
+        }}
+        title="Your recovery code"
+      >
+        <div className="space-y-4 text-center">
+          <p className="font-display text-2xl tracking-wider" data-testid="recovery-code">
+            {code}
+          </p>
+          <p className="text-sm text-muted">Write it down or save it in your password manager. It's shown only once, and anyone with it can sign in as you.</p>
+          <Button className="w-full" onClick={() => code && copyText(code).then((ok) => ok && toast("Copied", "good"))}>
+            Copy code
+          </Button>
+        </div>
+      </Modal>
+    </Card>
+  );
 }
 
 export function FriendsPage() {
@@ -199,6 +331,8 @@ export function FriendsPage() {
               </ul>
             </Card>
           )}
+
+          <AccountCard me={me} onSignedIn={() => void load()} />
         </>
       ) : (
         <>
