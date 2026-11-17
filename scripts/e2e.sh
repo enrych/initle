@@ -3,7 +3,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 PORT="${PORT:-8787}"
-pnpm --filter web build
+VITE_ADSENSE_CLIENT=off pnpm --filter web build
 if curl -sf "http://localhost:$PORT/api/health" >/dev/null 2>&1; then
   echo "Port $PORT is already serving something. Stop it or set PORT=..." >&2
   exit 1

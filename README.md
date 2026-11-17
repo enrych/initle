@@ -86,14 +86,12 @@ Every later push to `main` redeploys. Write endpoints are rate-limited per IP by
 
 ## Ads
 
-Ads use Google's H5 Games Ads (Ad Placement API) and are **off by default**. Code: `apps/web/src/lib/ads.ts`.
+Ads use Google's H5 Games Ads (Ad Placement API) and are **on**, with publisher `ca-pub-4399872503638784`. Code: `apps/web/src/lib/ads.ts`.
 
 - Where: an interstitial between Solo puzzles only. Party rooms, the stage screen and Daily stay ad-free.
 - Ad blockers: if Google's script can't load, ad breaks are skipped instantly and the game carries on.
-- To switch on, once AdSense and H5 Games Ads are approved:
-  1. In the Cloudflare dashboard, Worker `initle` → Settings → Build → Variables, add `VITE_ADSENSE_CLIENT` = your `ca-pub-…` ID.
-  2. `apps/web/public/ads.txt` and the `google-adsense-account` meta tag in `apps/web/index.html` already carry publisher `pub-4399872503638784` (also on the root site enry.ch).
-  3. Push to `main`.
+- Initle is the only Enrych site that serves ads. enry.ch keeps just the `google-adsense-account` meta tag and `ads.txt` for site ownership.
+- To build without ads, set `VITE_ADSENSE_CLIENT=off`. The local E2E run does this.
 - Privacy policy: `/privacy` (`apps/web/src/pages/Privacy.tsx`). EU/UK consent is handled by Google's consent message, set up in AdSense → Privacy & messaging.
 
 ## Content
