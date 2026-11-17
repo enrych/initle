@@ -92,7 +92,7 @@ Ads use Google's H5 Games Ads (Ad Placement API) and are **off by default**. Cod
 - Ad blockers: if Google's script can't load, ad breaks are skipped instantly and the game carries on.
 - To switch on, once AdSense and H5 Games Ads are approved:
   1. In the Cloudflare dashboard, Worker `initle` → Settings → Build → Variables, add `VITE_ADSENSE_CLIENT` = your `ca-pub-…` ID.
-  2. Add `apps/web/public/ads.txt` containing `google.com, pub-XXXXXXXXXXXXXXXX, DIRECT, f08c47fec0942fa0` (your ID, without `ca-`).
+  2. `apps/web/public/ads.txt` and the `google-adsense-account` meta tag in `apps/web/index.html` already carry publisher `pub-4399872503638784` (also on the root site enry.ch).
   3. Push to `main`.
 - Privacy policy: `/privacy` (`apps/web/src/pages/Privacy.tsx`). EU/UK consent is handled by Google's consent message, set up in AdSense → Privacy & messaging.
 
