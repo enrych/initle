@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { cn } from "../lib/cn";
 
-type Variant = "primary" | "secondary" | "ghost" | "danger" | RoundType;
+type Variant = "primary" | "secondary" | "ghost" | "danger" | "set" | RoundType;
 
 const variants: Record<Variant, string> = {
   primary: "btn3d bg-set text-outline",
@@ -46,7 +46,6 @@ export function Card({ className, children }: { className?: string; children: Re
 export const ROUND_META: Record<RoundType, { label: string; color: string; text: string; blurb: string; bg: string; border: string; emoji: string }> = {
   crack: { label: "Crack it!", color: "#3f8cff", text: "text-crack", bg: "bg-crack", border: "border-crack", emoji: "🔓", blurb: "Decode the initials. More letters appear every few seconds." },
   fake: { label: "Fake it!", color: "#ff4fa0", text: "text-fake", bg: "bg-fake", border: "border-fake", emoji: "🎭", blurb: "Write a believable fake that fits the letters. Then sniff out the real one." },
-  set: { label: "Set it!", color: "#ffc531", text: "text-set", bg: "bg-set", border: "border-set", emoji: "✍️", blurb: "A puzzle written by someone in this room. Crack it!" },
 };
 
 export function RoundBadge({ type, className }: { type: RoundType; className?: string }) {
@@ -56,7 +55,7 @@ export function RoundBadge({ type, className }: { type: RoundType; className?: s
       className={cn(
         "inline-flex -rotate-2 items-center rounded-xl border-[3px] border-outline px-2.5 py-0.5 font-display text-sm tracking-wide shadow-[0_3px_0_var(--color-outline)]",
         m.bg,
-        type === "set" ? "text-outline" : "text-white",
+        "text-white",
         className,
       )}
     >

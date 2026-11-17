@@ -1,4 +1,4 @@
-import { CONFIG, PROMPTS } from "./config";
+import { CONFIG } from "./config";
 import { tokenize } from "./text";
 import type { Award, BoardTile, Room, View } from "./types";
 
@@ -58,8 +58,6 @@ export function computeAwards(s: Room): Award[] {
   if (reader) awards.push({ title: "Lie Detector", playerId: reader.id, detail: `spotted the real one ${reader.value}×` });
   const fastest = best((id) => stat(id).fastest, false);
   if (fastest) awards.push({ title: "Quickest Draw", playerId: fastest.id, detail: `solved in ${(fastest.value / 1000).toFixed(1)}s` });
-  const master = best((id) => stat(id).setPoints);
-  if (master) awards.push({ title: "Puzzle Master", playerId: master.id, detail: `${master.value} points from their puzzles` });
   const first = best((id) => stat(id).firstSolves);
   if (first) awards.push({ title: "First Blood", playerId: first.id, detail: `first to solve ${first.value}×` });
   return awards;
@@ -72,10 +70,8 @@ export function toView(s: Room, me: string, now: number): View {
   const revealed = s.phase === "reveal" || s.phase === "scoreboard" || s.phase === "final";
 
   const ready = (id: string): boolean => {
-    const p = s.players[id]!;
-    if (s.phase === "prep") return p.prep.length > 0 && p.prep.every((slot) => !!slot.text);
     if (!r) return false;
-    if (s.phase === "play") return !!r.solves[id] || id === r.author;
+    if (s.phase === "play") return !!r.solves[id];
     if (s.phase === "write") return !!r.fakes[id];
     if (s.phase === "vote") return !!r.votes[id];
     return false;
@@ -95,20 +91,13 @@ export function toView(s: Room, me: string, now: number): View {
     };
   });
 
-  const mePlayer = s.players[me];
-  const prep: View["prep"] =
-    s.phase === "prep" && mePlayer
-      ? { prompts: mePlayer.prep.map((slot) => ({ prompt: PROMPTS[slot.prompt] ?? "", text: slot.text })) }
-      : null;
-
   let round: View["round"] = null;
-  if (r && s.phase !== "lobby" && s.phase !== "prep") {
-    const isAuthor = r.author === me && me !== "";
+  if (r && s.phase !== "lobby") {
     const mine = new Set(r.locked[me] ?? []);
     const intro = s.phase === "intro";
-    // Fake rounds show initials only (plus lengths); the author of a Set round sees their phrase.
+    // Fake rounds show initials only (plus lengths).
     const stage = r.type === "fake" ? 1 : r.stage;
-    let board = buildBoard(r.item.text, intro ? 0 : stage, mine, revealed || isAuthor);
+    let board = buildBoard(r.item.text, intro ? 0 : stage, mine, revealed);
     if (intro) board = board.map((t) => (t.kind === "word" ? { ...t, initial: "?", chars: [null], len: null } : t));
     round = {
       index: r.index,
@@ -116,9 +105,8 @@ export function toView(s: Room, me: string, now: number): View {
       type: r.type,
       stage: intro ? -1 : r.stage,
       stages: CONFIG.STAGES,
-      pack: r.type === "set" ? "Set" : (s.packNames[r.item.pack] ?? r.item.pack),
-      author: r.author,
-      hint: revealed || isAuthor || (r.type !== "fake" && !intro && r.stage >= 2) ? r.item.hint : null,
+      pack: s.packNames[r.item.pack] ?? r.item.pack,
+      hint: revealed || (r.type !== "fake" && !intro && r.stage >= 2) ? r.item.hint : null,
       wordCount: board.filter((t) => t.kind === "word").length,
       multiplier: r.multiplier,
       board,
@@ -183,7 +171,6 @@ export function toView(s: Room, me: string, now: number): View {
     paused: s.paused,
     serverNow: now,
     players,
-    prep,
     round,
     reveal,
     standings,

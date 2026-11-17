@@ -1,11 +1,10 @@
 # Initle
 
-**Every letter counts.** A phone-first party game for 2–10 friends: crack phrases from their initials, write fakes that fit the letters, and solve puzzles your friends wrote about each other. Plus a solo Daily puzzle.
+**Every letter counts.** A phone-first party game for 2–10 friends: crack phrases from their initials and write fakes that fit the letters to fool your friends. Plus a solo Daily puzzle.
 
-- **Party mode**: private room with a 4-letter code or link. Rounds mix three types:
+- **Party mode**: private room with a 4-letter code or link. Rounds mix two types:
   - **Crack it**: initials are revealed in stages every 8s. Solve earlier for more points; correct words lock in green.
   - **Fake it**: everyone writes a believable fake that fits the letters, then votes for the real one.
-  - **Set it**: phrases players wrote during Prep become puzzles. Authors score only if *some, not all*, solve them.
 - **Stage screen** (`/stage/CODE`): a big read-only view for a TV or laptop, while phones act as controllers.
 - **Daily** (`/daily`): one puzzle a day, five guesses, a shareable emoji grid, streaks, and global stats.
 - **Custom packs** (`/packs/new`): paste a list of phrases and share it as a link.

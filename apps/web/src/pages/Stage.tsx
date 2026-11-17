@@ -95,16 +95,6 @@ export function StagePage() {
             </p>
           </div>
         );
-      case "prep":
-        return (
-          <div className="flex flex-col items-center gap-10 text-center">
-            <h1 className="font-display text-7xl font-bold text-set">Write about your group</h1>
-            <p className="max-w-3xl text-3xl text-muted">Everyone is writing two phrases on their phone. They'll become puzzles later.</p>
-            <div className="scale-150">
-              <PlayerStrip players={view.players} me="" />
-            </div>
-          </div>
-        );
       case "intro":
         return (
           <div className="flex flex-col items-center gap-8 text-center">
@@ -127,10 +117,9 @@ export function StagePage() {
             {r!.hint && <p className="rounded-full border-[3px] border-outline bg-cream font-bold text-outline shadow-[0_3px_0_var(--color-outline)] px-8 py-3 text-4xl">Hint: {r!.hint}</p>}
             <p className="text-3xl text-muted">
               {r!.wordCount} words · {r!.pack}
-              {r!.author && ` · puzzle by ${view.players.find((p) => p.id === r!.author)?.name ?? "?"}`}
             </p>
             <div className="scale-150 pt-6">
-              <PlayerStrip players={view.players} me="" wordCount={view.phase === "play" ? r!.wordCount : undefined} exclude={r!.author} />
+              <PlayerStrip players={view.players} me="" wordCount={view.phase === "play" ? r!.wordCount : undefined} />
             </div>
           </div>
         );

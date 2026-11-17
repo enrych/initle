@@ -5,7 +5,6 @@ import { cn } from "../lib/cn";
 const ACCENT: Record<RoundType | "daily", string> = {
   crack: "bg-crack text-white",
   fake: "bg-fake text-white",
-  set: "bg-set text-outline",
   daily: "bg-crack text-white",
 };
 const SOLID = "border-[3px] border-outline shadow-[0_4px_0_var(--color-outline),inset_0_-4px_0_rgb(0_0_0/0.18)]";

@@ -54,3 +54,7 @@ Format: **decision**, why, and what it costs us. Newest at the bottom.
 | 47 | Solo endless | `/solo`: pick packs, crack puzzles back to back with no end. Guess-based stages like the Daily, a "Reveal more letters" skip, give up anytime. Points by stage plus a consecutive-solve bonus (+10 per solve in a row, capped at +100). Run and best stats live on the device. Stateless server endpoints (`/api/solo/*`) keep answers server-side and avoid repeats using the client's recent history | Players are often alone; solo play also feeds habit between parties | No global leaderboard (no accounts yet); history is per device |
 | 48 | Daily streak | Streak shown on the home Daily card ("Keep your 2-day streak alive!"), in the Daily header, in the share text (🔥N), with toasts at milestones (3, 7, 14, 30, 50, 100, 365 days) | A visible streak is the main reason people come back daily | Device-only until accounts exist (v2.4) |
 | 49 | Host on a TV | Home "Host on a TV" creates a room and opens the stage screen directly; the first phone to join becomes host | Living-room groups start from the TV, not a phone | None |
+
+## Removed the "Set it" round and Prep phase (2026-11-17)
+
+Playtesting showed Set it didn't fit: writing two phrases about the group under a timer before the game was hard, and guessing friends' made-up phrases is closer to Psych than to cracking initials. Games now go straight from the lobby into Crack it and Fake it rounds. Rooms saved mid-Prep or mid-Set when this shipped are sent back to the lobby.
