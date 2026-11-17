@@ -215,6 +215,18 @@ export function Home() {
         </Link>
       </div>
 
+      <Link to="/friends" className="group -mt-3">
+        <motion.div whileTap={{ scale: 0.98 }} className="panel-sm flex items-center justify-between bg-surface-2 px-4 py-3 transition group-hover:-translate-y-0.5">
+          <span>
+            <span className="block font-display text-xl">🏆 Friends &amp; leaderboards</span>
+            <span className="block text-sm font-bold text-muted">See who cracked today's Daily fastest</span>
+          </span>
+          <span className="text-2xl" aria-hidden>
+            →
+          </span>
+        </motion.div>
+      </Link>
+
       <Card className="py-5">
         <DemoBoard />
       </Card>
@@ -252,6 +264,9 @@ export function Home() {
         </button>
         <Link to="/packs/new" className="underline-offset-4 hover:text-ink hover:underline">
           Make a custom pack
+        </Link>
+        <Link to="/friends" className="underline-offset-4 hover:text-ink hover:underline">
+          Friends &amp; leaderboards
         </Link>
         <Link to="/privacy" className="underline-offset-4 hover:text-ink hover:underline">
           Privacy

@@ -26,6 +26,10 @@ export function PrivacyPage() {
             <b>Custom packs:</b> phrases you put in a pack are stored so the share link works. Don't put private information in a pack.
           </li>
           <li>
+            <b>Friends and leaderboards:</b> when you play the Daily or open Friends, we store your nickname, avatar, a public friend code, a random device ID (hashed), your friends list, and your
+            Daily results and streaks. Friends see your results. Your nickname and score also appear on global leaderboards unless you turn that off on the Friends page.
+          </li>
+          <li>
             <b>Game stats:</b> anonymous totals such as how many people solved today's Daily, and summaries of finished games without names.
           </li>
         </ul>
