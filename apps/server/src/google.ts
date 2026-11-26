@@ -10,8 +10,7 @@ export type GoogleMode = "save" | "signin";
 type Result = "ok" | "denied" | "expired" | "taken" | "unknown" | "failed";
 type State = { h: string; n: string; o: string; m: GoogleMode };
 
-const COOKIE = "initle_g";
-const COOKIE_PATH = "/api/auth/google";
+const PRODUCTION = "https://initle.enry.ch";
 const ISSUERS = ["https://accounts.google.com", "accounts.google.com"];
 
 function config(env: GoogleEnv) {
@@ -26,8 +25,24 @@ function config(env: GoogleEnv) {
 
 export const googleEnabled = (env: GoogleEnv) => config(env) !== null;
 
+/**
+ * Where Google sends the browser back, and where we send it after: the real site, or this computer
+ * while developing. Never a host the request merely claims (anyone can register initle.<name>.workers.dev).
+ */
+function siteOrigin(raw: string): string {
+  try {
+    const url = new URL(raw);
+    if (url.hostname === "localhost" || url.hostname === "127.0.0.1") return url.origin;
+  } catch {
+    // fall through
+  }
+  return PRODUCTION;
+}
+
+// Over https the __Host- prefix stops any other *.enry.ch site from planting this cookie.
+const cookieName = (origin: string) => (origin.startsWith("https:") ? "__Host-initle_g" : "initle_g");
 const cookie = (value: string, origin: string, maxAge: number) =>
-  `${COOKIE}=${value}; Path=${COOKIE_PATH}; Max-Age=${maxAge}; HttpOnly; SameSite=Lax${origin.startsWith("https:") ? "; Secure" : ""}`;
+  `${cookieName(origin)}=${value}; Path=/; Max-Age=${maxAge}; HttpOnly; SameSite=Lax${origin.startsWith("https:") ? "; Secure" : ""}`;
 
 const redirectUri = (origin: string) => `${origin}/api/auth/google/callback`;
 
@@ -38,7 +53,7 @@ const redirectUri = (origin: string) => `${origin}/api/auth/google/callback`;
 export async function googleStart(env: GoogleEnv, req: Request, token: string, mode: GoogleMode): Promise<{ url: string; cookie: string }> {
   const cfg = config(env)!;
   await ensureSchema(env.DB);
-  const { origin } = relyingParty(req);
+  const origin = siteOrigin(relyingParty(req).origin);
   const nonce = [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, "0")).join("");
   const state: State = { h: await sha256(token), n: await sha256(nonce), o: origin, m: mode };
   const id = await saveChallenge(env.DB, JSON.stringify(state), null);
@@ -72,7 +87,7 @@ async function googleUserId(cfg: NonNullable<ReturnType<typeof config>>, code: s
 async function finish(env: GoogleEnv, req: Request, url: URL, state: State | null): Promise<Result> {
   const cfg = config(env)!;
   if (!state) return "expired";
-  const nonce = req.headers.get("cookie")?.match(new RegExp(`(?:^|;\\s*)${COOKIE}=([0-9a-f]{32})`))?.[1];
+  const nonce = req.headers.get("cookie")?.match(new RegExp(`(?:^|;\\s*)${cookieName(state.o)}=([0-9a-f]{32})`))?.[1];
   if (!nonce || (await sha256(nonce)) !== state.n) return "expired";
   if (url.searchParams.get("error")) return "denied";
   const code = url.searchParams.get("code");
@@ -114,7 +129,7 @@ export async function googleCallback(env: GoogleEnv, req: Request, url: URL): Pr
       // A WebAuthn challenge id, not one of ours.
     }
   }
-  const origin = state?.o ?? relyingParty(req).origin;
+  const origin = siteOrigin(state?.o ?? relyingParty(req).origin);
   let result: Result;
   try {
     result = await finish(env, req, url, state);

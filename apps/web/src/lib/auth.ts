@@ -85,10 +85,19 @@ export async function finishGoogle(): Promise<{ ok: true; me: Me } | { ok: false
   const url = new URL(location.href);
   const result = url.searchParams.get("google");
   if (!result) return null;
-  url.searchParams.delete("google");
-  history.replaceState(history.state, "", url.pathname + url.search + url.hash);
-  if (result !== "ok") return { ok: false, message: GOOGLE_ERRORS[result] ?? GOOGLE_ERRORS.failed! };
+  const strip = () => {
+    url.searchParams.delete("google");
+    history.replaceState(history.state, "", url.pathname + url.search + url.hash);
+  };
+  if (result !== "ok") {
+    strip();
+    return { ok: false, message: GOOGLE_ERRORS[result] ?? GOOGLE_ERRORS.failed! };
+  }
+  // The server has already switched this device. Until we have the new player, nothing may send this
+  // device's old name, so on failure keep `?google=ok` and stop: "Try again" (a reload) retries.
   const res = await fetch("/api/me", { headers: authHeaders() }).catch(() => null);
-  if (!res?.ok) return { ok: false, message: GOOGLE_ERRORS.failed! };
-  return { ok: true, me: adopt((await res.json()) as Me) };
+  if (!res?.ok) throw new ApiError("Signed in with Google, but couldn't load your profile. Check your connection and try again.");
+  const me = adopt((await res.json()) as Me);
+  strip();
+  return { ok: true, me };
 }

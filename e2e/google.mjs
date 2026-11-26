@@ -78,6 +78,16 @@ try {
   eq(s.url.searchParams.get("scope"), "openid", "scope");
   eq(s.url.searchParams.get("redirect_uri"), `http://${host}/api/auth/google/callback`, "redirect_uri");
 
+  // A page claiming another host (anyone can register initle.<name>.workers.dev) never gets the browser sent there.
+  const evil = await fetch(`${BASE}/api/auth/google/start`, { method: "POST", headers: { ...a.headers, "x-initle-host": "initle.evil.workers.dev", "x-initle-proto": "https:" }, body: JSON.stringify({ mode: "save" }) });
+  const evilUrl = new URL((await evil.json()).url);
+  eq(evilUrl.searchParams.get("redirect_uri"), "https://initle.enry.ch/api/auth/google/callback", "redirect_uri for an unknown host");
+  const back = await fetch(`${BASE}/api/auth/google/callback?${new URLSearchParams({ state: evilUrl.searchParams.get("state"), code: "x" })}`, { redirect: "manual" });
+  // (wrangler dev rewrites https://initle.enry.ch in a Location header to its local address.)
+  const backTo = new URL(back.headers.get("location")).origin;
+  if (backTo !== "https://initle.enry.ch" && backTo !== new URL(BASE).origin) fail(`callback for an unknown host redirected to ${backTo}`);
+  eq((evil.headers.getSetCookie()[0] ?? "").split("=")[0], "__Host-initle_g", "cookie name over https");
+
   // Someone else's browser (no cookie) opening the link must not link anything, and burns the state.
   eq(await callback({ code: ALICE, state: s.state }, null), "expired", "callback without cookie");
   eq((await account(a)).google, false, "google after a cookie-less callback");
