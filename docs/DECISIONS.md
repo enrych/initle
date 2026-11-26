@@ -58,3 +58,7 @@ Format: **decision**, why, and what it costs us. Newest at the bottom.
 ## Removed the "Set it" round and Prep phase (2026-11-17)
 
 Playtesting showed Set it didn't fit: writing two phrases about the group under a timer before the game was hard, and guessing friends' made-up phrases is closer to Psych than to cracking initials. Games now go straight from the lobby into Crack it and Fake it rounds. Rooms saved mid-Prep or mid-Set when this shipped are sent back to the lobby.
+
+## Sign in with Google (2026-11-26)
+
+A third way to keep a player across devices, beside passkeys and recovery codes. Server-side OAuth redirect on the Worker (no Google script on the page, no CSP change). We request only `openid` and store only Google's opaque user ID, so the "no email, no real name" promise holds; players keep their Initle nickname and avatar. "Save with Google" attaches the account to the current player and refuses if that account already has one; "Sign in with Google" switches the device to it. The flow is tied to the device token and to a browser cookie, so a link started in one browser can't be finished in another. Off unless `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set (`wrangler secret put`). Trade-offs: Google blocks sign-in inside in-app browsers (we tell people to open Safari or Chrome); a guest profile is not merged when its device signs in to another player.

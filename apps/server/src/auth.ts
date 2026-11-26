@@ -9,6 +9,7 @@ import {
   type AuthenticatorTransportFuture,
   type RegistrationResponseJSON,
 } from "@simplewebauthn/server";
+import { ensureSchema } from "./db";
 import { type Player, sha256 } from "./social";
 
 const CHALLENGE_TTL = 5 * 60 * 1000;
@@ -27,7 +28,7 @@ const ALLOWED_HOST = /^(initle\.enry\.ch|initle\.[a-z0-9-]+\.workers\.dev|localh
  * The site a passkey is bound to: initle.enry.ch in production, localhost in development.
  * Taken from the browser's Origin header (the Worker's own URL can be rewritten by routes in dev).
  */
-function relyingParty(req: Request) {
+export function relyingParty(req: Request) {
   // wrangler dev rewrites any header holding the local origin to the route host, so the page also
   // sends its host and protocol separately. Either way the browser binds the passkey to the real page
   // origin, and verification checks it.
@@ -44,7 +45,7 @@ function relyingParty(req: Request) {
   return { rpID: url.hostname, origin: url.origin };
 }
 
-async function saveChallenge(db: D1Database, challenge: string, playerId: string | null) {
+export async function saveChallenge(db: D1Database, challenge: string, playerId: string | null) {
   const id = randomId();
   const now = Date.now();
   await db.batch([
@@ -55,7 +56,7 @@ async function saveChallenge(db: D1Database, challenge: string, playerId: string
 }
 
 /** Each challenge works once. */
-async function takeChallenge(db: D1Database, id: string) {
+export async function takeChallenge(db: D1Database, id: string) {
   const row = await db
     .prepare("DELETE FROM auth_challenges WHERE id = ? AND expires_at >= ? RETURNING challenge, player_id")
     .bind(id, Date.now())
@@ -65,7 +66,12 @@ async function takeChallenge(db: D1Database, id: string) {
 
 /** Point this device's token at `playerId`. The device's old, empty profile (if any) is dropped. */
 export async function linkDevice(db: D1Database, token: string, playerId: string) {
-  const hash = await sha256(token);
+  await linkTokenHash(db, await sha256(token), playerId);
+}
+
+/** As `linkDevice`, for callers that hold only the token's hash. */
+export async function linkTokenHash(db: D1Database, hash: string, playerId: string) {
+  await ensureSchema(db);
   const old = await db.prepare("SELECT player_id FROM player_tokens WHERE token_hash = ?").bind(hash).first<{ player_id: string }>();
   const stmts = [
     db
@@ -76,21 +82,23 @@ export async function linkDevice(db: D1Database, token: string, playerId: string
     // Remove the profile this device had only if nothing else signs into it.
     stmts.push(
       db
-        .prepare("DELETE FROM players WHERE id = ? AND NOT EXISTS (SELECT 1 FROM player_tokens WHERE player_id = ? AND token_hash != ?) AND NOT EXISTS (SELECT 1 FROM passkeys WHERE player_id = ?) AND NOT EXISTS (SELECT 1 FROM recovery_codes WHERE player_id = ?)")
-        .bind(old.player_id, old.player_id, hash, old.player_id, old.player_id),
+        .prepare("DELETE FROM players WHERE id = ? AND NOT EXISTS (SELECT 1 FROM player_tokens WHERE player_id = ? AND token_hash != ?) AND NOT EXISTS (SELECT 1 FROM passkeys WHERE player_id = ?) AND NOT EXISTS (SELECT 1 FROM recovery_codes WHERE player_id = ?) AND NOT EXISTS (SELECT 1 FROM google_accounts WHERE player_id = ?)")
+        .bind(old.player_id, old.player_id, hash, old.player_id, old.player_id, old.player_id),
     );
   }
   await db.batch(stmts);
 }
 
 export async function accountStatus(db: D1Database, me: Player) {
-  const [keys, rec] = await db.batch([
+  const [keys, rec, google] = await db.batch([
     db.prepare("SELECT COUNT(*) AS n FROM passkeys WHERE player_id = ?").bind(me.id),
     db.prepare("SELECT created_at FROM recovery_codes WHERE player_id = ?").bind(me.id),
+    db.prepare("SELECT created_at FROM google_accounts WHERE player_id = ? LIMIT 1").bind(me.id),
   ]);
   return {
     passkeys: (keys!.results?.[0] as { n: number } | undefined)?.n ?? 0,
     recoveryCode: (rec!.results?.length ?? 0) > 0,
+    google: (google!.results?.length ?? 0) > 0,
   };
 }
 

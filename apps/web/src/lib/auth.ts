@@ -17,7 +17,7 @@ async function post<T>(path: string, body: unknown = {}): Promise<T> {
   return data;
 }
 
-export type AccountStatus = { passkeys: number; recoveryCode: boolean };
+export type AccountStatus = { passkeys: number; recoveryCode: boolean; google: boolean; googleEnabled: boolean };
 
 export const passkeysSupported = () => browserSupportsWebAuthn();
 
@@ -52,3 +52,43 @@ export async function signInWithPasskey(): Promise<Me> {
 export const newRecoveryCode = () => post<{ code: string }>("/api/auth/recovery").then((r) => r.code);
 
 export const signInWithRecoveryCode = async (code: string) => adopt(await post<Me>("/api/auth/recovery/use", { code }));
+
+// ---------- Google ----------
+
+/** Google refuses to sign people in inside the browsers built into apps like Instagram or TikTok. */
+const inAppBrowser = () => /FBAN|FBAV|FB_IAB|Instagram|TikTok|musical_ly|Line\/|Snapchat|; wv\)/i.test(navigator.userAgent);
+
+const GOOGLE_ERRORS: Record<string, string> = {
+  denied: "Google sign-in was cancelled.",
+  expired: "That took too long. Try again.",
+  taken: "That Google account already has an Initle player. Use \"Sign in\" below to switch to it.",
+  unknown: "No Initle player is saved with that Google account yet.",
+  failed: "Couldn't sign in with Google. Try again.",
+};
+
+/**
+ * Leave for Google. "save" attaches the Google account to this device's player;
+ * "signin" switches this device to the player already saved with it.
+ */
+export async function startGoogle(mode: "save" | "signin"): Promise<void> {
+  if (inAppBrowser()) throw new ApiError("Open Initle in Safari or Chrome to use Google.");
+  const { url } = await post<{ url: string }>("/api/auth/google/start", { mode });
+  location.assign(url);
+  await new Promise(() => {}); // the page is navigating away: keep the button busy
+}
+
+/**
+ * Back from Google? Reads (and removes) the `?google=` result. On success this device's player is
+ * fetched and adopted, so call this before anything that sends the local name to the server.
+ */
+export async function finishGoogle(): Promise<{ ok: true; me: Me } | { ok: false; message: string } | null> {
+  const url = new URL(location.href);
+  const result = url.searchParams.get("google");
+  if (!result) return null;
+  url.searchParams.delete("google");
+  history.replaceState(history.state, "", url.pathname + url.search + url.hash);
+  if (result !== "ok") return { ok: false, message: GOOGLE_ERRORS[result] ?? GOOGLE_ERRORS.failed! };
+  const res = await fetch("/api/me", { headers: authHeaders() }).catch(() => null);
+  if (!res?.ok) return { ok: false, message: GOOGLE_ERRORS.failed! };
+  return { ok: true, me: adopt((await res.json()) as Me) };
+}
