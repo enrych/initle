@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { toast } from "../components/Toasts";
 import { Button, Card, Logo, Modal, Segmented, Spinner, Toggle } from "../components/ui";
-import { accountStatus, addPasskey, isCancel, newRecoveryCode, passkeysSupported, signInWithPasskey, signInWithRecoveryCode, type AccountStatus } from "../lib/auth";
+import { accountStatus, addPasskey, finishGoogle, isCancel, newRecoveryCode, passkeysSupported, signInWithPasskey, signInWithRecoveryCode, startGoogle, type AccountStatus } from "../lib/auth";
 import { cn } from "../lib/cn";
 import { copyText, shareOrCopy } from "../lib/share";
 import { ensureProfile, friendUrl, rankFriends, resultLabel, social, type FriendRow, type Leaderboard, type Me, type Profile } from "../lib/social";
@@ -80,7 +80,7 @@ function AccountCard({ me, onSignedIn }: { me: Me; onSignedIn: () => void }) {
     }
   };
 
-  const saved = !!status && (status.passkeys > 0 || status.recoveryCode);
+  const saved = !!status && (status.passkeys > 0 || status.recoveryCode || status.google);
   const switchWarning = "This device will switch to that player. Friends and streaks from the profile it has now aren't carried over.";
 
   return (
@@ -95,9 +95,17 @@ function AccountCard({ me, onSignedIn }: { me: Me; onSignedIn: () => void }) {
       </div>
       {status && (
         <div className="flex flex-col gap-2">
+          {status.googleEnabled &&
+            (status.google ? (
+              <p className="text-sm font-bold text-muted">✓ Saved with Google</p>
+            ) : (
+              <Button disabled={busy !== null} onClick={() => run("google", () => startGoogle("save"))}>
+                {busy === "google" ? <Spinner /> : "Save with Google"}
+              </Button>
+            ))}
           {supported && (
             <Button
-              variant={status.passkeys ? "secondary" : "primary"}
+              variant={status.passkeys || status.googleEnabled ? "secondary" : "primary"}
               disabled={busy !== null}
               onClick={() =>
                 run("passkey", async () => {
@@ -121,9 +129,15 @@ function AccountCard({ me, onSignedIn }: { me: Me; onSignedIn: () => void }) {
       {signIn && (
         <div className="space-y-2 rounded-2xl border-[3px] border-outline bg-bg-deep p-3">
           <p className="text-xs text-muted">{switchWarning}</p>
+          {status?.googleEnabled && (
+            <Button className="w-full" disabled={busy !== null} onClick={() => run("google-signin", () => startGoogle("signin"))}>
+              {busy === "google-signin" ? <Spinner /> : "Sign in with Google"}
+            </Button>
+          )}
           {supported && (
             <Button
               className="w-full"
+              variant={status?.googleEnabled ? "secondary" : "primary"}
               disabled={busy !== null}
               onClick={() =>
                 run("signin", async () => {
@@ -198,6 +212,9 @@ export function FriendsPage() {
 
   const load = async () => {
     try {
+      // Back from Google: adopt the signed-in player before ensureProfile sends this device's old name.
+      const google = await finishGoogle();
+      if (google) toast(google.ok ? `Google connected. Playing as ${google.me.name}` : google.message, google.ok ? "good" : "bad");
       const m = await ensureProfile();
       setMe(m);
       const [f, b] = await Promise.all([social.friends(), social.leaderboard()]);

@@ -82,6 +82,7 @@ Every later push to `main` redeploys. Write endpoints are rate-limited per IP by
 - `/f/:code`: invite link. Opening it adds both players as friends and drops you into the Daily. The Daily share link is your invite link.
 - Scores are counted by the server (`daily_results`), one result per player per day, today's puzzle only. Ranking: solved, then fewest guesses, then fastest.
 - Signing in on other devices: Friends page → "Save your progress". A passkey (WebAuthn, via `@simplewebauthn`) or a 16-character recovery code links a new device's token to the same player (`apps/server/src/auth.ts`, `apps/web/src/lib/auth.ts`, test `e2e/account.mjs` with Chrome's virtual authenticator). Passkeys are bound to the site they were made on (initle.enry.ch).
+- Sign in with Google (optional, off until configured): "Save with Google" / "Sign in with Google" on the Friends page. Server-side OAuth redirect; only Google's opaque user ID is stored (`google_accounts`). To turn it on, create an OAuth client (Web application) in Google Cloud with the redirect URI `https://initle.enry.ch/api/auth/google/callback`, then add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` as secrets on the Worker (dashboard → Settings → Variables and Secrets, or `wrangler secret put`). Locally, put them in `apps/server/.dev.vars`. Code: `apps/server/src/google.ts`. Test: `e2e/google.mjs` (no browser, stand-in for Google).
 - Code: `apps/server/src/social.ts`, `apps/server/migrations/0002_social.sql`, `apps/web/src/lib/social.ts`, `apps/web/src/pages/Friends.tsx`. Test: `e2e/friends.mjs`.
 
 ## Ads

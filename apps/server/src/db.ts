@@ -1,12 +1,13 @@
 import type { Item } from "@initle/core";
 import initSql from "../migrations/0001_init.sql";
 import socialSql from "../migrations/0002_social.sql";
+import googleSql from "../migrations/0003_google.sql";
 
 /**
  * The Worker creates its own tables (idempotent CREATE ... IF NOT EXISTS), once per isolate.
  * No separate migration step is needed in any deploy pipeline, including Cloudflare Workers Builds.
  */
-const STATEMENTS = `${initSql};\n${socialSql}`
+const STATEMENTS = `${initSql};\n${socialSql};\n${googleSql}`
   .split(";")
   .map((s) => s.replace(/--.*$/gm, "").trim())
   .filter(Boolean);

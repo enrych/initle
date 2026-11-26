@@ -22,6 +22,7 @@ import {
 import { getServerByName, routePartykitRequest } from "partyserver";
 import { getDailyStats, insertCustomPack, loadCustomPacks, recordDaily, reportPack } from "./db";
 import { accountStatus, newRecoveryCode, passkeyLoginOptions, passkeyLoginVerify, passkeyRegisterOptions, passkeyRegisterVerify, useRecoveryCode } from "./auth";
+import { googleCallback, googleEnabled, googleStart } from "./google";
 import { FRIEND_CODE_RE, addFriend, findPlayer, friendsBoard, globalBoard, liveStreak, publicProfile, readToken, removeFriend, trackDailyGuess, upsertPlayer, type Player } from "./social";
 
 export { Room } from "./room";
@@ -347,6 +348,21 @@ async function auth(env: Env, req: Request, url: URL): Promise<Response> {
   const body = req.method === "POST" ? ((await readJson(req)) as Record<string, unknown> | null) : null;
   const challengeId = typeof body?.challengeId === "string" ? body.challengeId : "";
 
+  if (pathname.startsWith("/api/auth/google/")) {
+    if (!googleEnabled(env)) return error(404, "Not found");
+    // Google sends the browser back here: a plain page load, so no token header.
+    if (pathname === "/api/auth/google/callback" && req.method === "GET") return googleCallback(env, req, url);
+    if (pathname === "/api/auth/google/start" && req.method === "POST") {
+      const blocked = await limited(env.CREATE_LIMITER, req, "auth");
+      if (blocked) return blocked;
+      const token = readToken(req);
+      if (!token) return error(401, "Missing player token.");
+      const { url: to, cookie } = await googleStart(env, req, token, body?.mode === "signin" ? "signin" : "save");
+      return new Response(JSON.stringify({ url: to }), { headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "set-cookie": cookie } });
+    }
+    return error(404, "Not found");
+  }
+
   // Signing in from a new device: needs only this device's token.
   if (pathname === "/api/auth/passkey/login/options" || pathname === "/api/auth/passkey/login/verify" || pathname === "/api/auth/recovery/use") {
     if (req.method !== "POST") return error(405, "Use POST.");
@@ -371,7 +387,7 @@ async function auth(env: Env, req: Request, url: URL): Promise<Response> {
   // Everything else needs a player.
   const me = await requirePlayer(env, req);
   if (me instanceof Response) return me;
-  if (pathname === "/api/account" && req.method === "GET") return json(await accountStatus(env.DB, me));
+  if (pathname === "/api/account" && req.method === "GET") return json({ ...(await accountStatus(env.DB, me)), googleEnabled: googleEnabled(env) });
   if (pathname === "/api/auth/passkey/register/options" && req.method === "POST") return json(await passkeyRegisterOptions(env.DB, req, me));
   if (pathname === "/api/auth/passkey/register/verify" && req.method === "POST") {
     if (!challengeId || !body?.response) return error(400, "Bad request.");
