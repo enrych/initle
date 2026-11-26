@@ -69,7 +69,8 @@ export const CreatePackBody = z.object({
 });
 export type CreatePackBody = z.infer<typeof CreatePackBody>;
 
-export type PackSummary = { id: string; name: string; count: number; custom: boolean; description?: string };
+/** Built-in packs also carry their region (see PACK_REGIONS) and the short label shown under it. */
+export type PackSummary = { id: string; name: string; count: number; custom: boolean; description?: string; region?: string; label?: string };
 
 export const DailyGuessBody = z.object({
   day: z.number().int().min(1),

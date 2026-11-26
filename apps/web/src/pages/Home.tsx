@@ -7,6 +7,7 @@ import { HowToPlay } from "../components/HowToPlay";
 import { toast } from "../components/Toasts";
 import { Button, Card, Logo, Modal, Spinner } from "../components/ui";
 import { api } from "../lib/api";
+import { useInstall } from "../lib/pwa";
 import { getIdentity, saveIdentity, suggestName } from "../lib/identity";
 import { store } from "../lib/storage";
 import { streakStatus } from "../lib/streak";
@@ -95,6 +96,8 @@ export function Home() {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState<"create" | "join" | null>(null);
   const [howTo, setHowTo] = useState(false);
+  const install = useInstall();
+  const [installHelp, setInstallHelp] = useState(false);
   const streak = streakStatus();
   const [lastRoom, setLastRoom] = useState<string | null>(null);
 
@@ -268,10 +271,23 @@ export function Home() {
         <Link to="/friends" className="underline-offset-4 hover:text-ink hover:underline">
           Friends &amp; leaderboards
         </Link>
+        {install.available && (
+          <button onClick={async () => (await install.prompt()) || setInstallHelp(true)} className="underline-offset-4 hover:text-ink hover:underline">
+            Install the app
+          </button>
+        )}
         <Link to="/privacy" className="underline-offset-4 hover:text-ink hover:underline">
           Privacy
         </Link>
       </nav>
+      <Modal open={installHelp} onClose={() => setInstallHelp(false)} title="Install Initle">
+        <ol className="list-decimal space-y-2 pl-6 text-left">
+          {install.steps.map((step) => (
+            <li key={step}>{step}</li>
+          ))}
+        </ol>
+        <p className="mt-3 text-sm text-muted">Initle then opens full screen from its own icon, like any other app. It's free and takes almost no space.</p>
+      </Modal>
 
       <Modal open={howTo} onClose={() => setHowTo(false)} title="How to play">
         <HowToPlay />

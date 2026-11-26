@@ -1,7 +1,7 @@
 {
   "name": "Initle",
   "short_name": "Initle",
-  "description": "The party game of initials.",
+  "description": "The party game of initials. Crack them, fake them, and fool your friends.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#2a1160",
@@ -22,6 +22,56 @@
       "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png"
+    },
+    {
+      "src": "/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "id": "/",
+  "scope": "/",
+  "orientation": "portrait",
+  "categories": [
+    "games",
+    "entertainment"
+  ],
+  "shortcuts": [
+    {
+      "name": "Daily puzzle",
+      "short_name": "Daily",
+      "url": "/daily",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Solo",
+      "url": "/solo",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Friends & leaderboards",
+      "short_name": "Friends",
+      "url": "/friends",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
     }
   ]
 }

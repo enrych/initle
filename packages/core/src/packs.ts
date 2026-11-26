@@ -1,22 +1,26 @@
-import { BOLLYWOOD, BOOKS, IDIOMS, MOVIES, PLACES, QUOTES, SONGS, TV, type Entry } from "./packs-data";
+import type { PackRegionId } from "./config";
+import { BOLLYWOOD, BOOKS, HINDI_SONGS, IDIOMS, MOVIES, PLACES, QUOTES, SONGS, TV, type Entry } from "./packs-data";
 import { mulberry32, shuffle } from "./random";
 import type { Item, PackId } from "./types";
 
-export type BuiltInPack = { id: PackId; name: string; description: string; items: Item[] };
+/** `name` is the full name (unambiguous on its own); `label` is the short one shown under its region. */
+export type BuiltInPack = { id: PackId; name: string; label: string; region: PackRegionId; description: string; items: Item[] };
 
 function build(pack: PackId, entries: Entry[]): Item[] {
   return entries.map(([text, hint, aliases = []], i) => ({ id: `${pack}-${i + 1}`, pack, text, hint, aliases }));
 }
 
+// Pack ids are permanent (the Daily order and saved Solo progress depend on them); names can change.
 export const PACKS: Record<PackId, BuiltInPack> = {
-  idioms: { id: "idioms", name: "Idioms & Sayings", description: "Everyone knows these. Start here.", items: build("idioms", IDIOMS) },
-  movies: { id: "movies", name: "Movies", description: "Hollywood classics and hits", items: build("movies", MOVIES) },
-  tv: { id: "tv", name: "TV Shows", description: "Binge-worthy series", items: build("tv", TV) },
-  songs: { id: "songs", name: "Songs", description: "Anthems and earworms", items: build("songs", SONGS) },
-  books: { id: "books", name: "Books", description: "Classics and bestsellers", items: build("books", BOOKS) },
-  bollywood: { id: "bollywood", name: "Bollywood", description: "Hindi cinema favourites", items: build("bollywood", BOLLYWOOD) },
-  quotes: { id: "quotes", name: "Famous Quotes", description: "Lines everyone knows", items: build("quotes", QUOTES) },
-  places: { id: "places", name: "Places & Landmarks", description: "Wonders of the world", items: build("places", PLACES) },
+  idioms: { id: "idioms", name: "Idioms & Sayings", label: "Idioms & Sayings", region: "general", description: "Everyone knows these. Start here.", items: build("idioms", IDIOMS) },
+  movies: { id: "movies", name: "Hollywood Movies", label: "Movies", region: "hollywood", description: "Hollywood classics and hits", items: build("movies", MOVIES) },
+  tv: { id: "tv", name: "English TV Shows", label: "TV Shows", region: "hollywood", description: "Binge-worthy series", items: build("tv", TV) },
+  songs: { id: "songs", name: "English Songs", label: "Songs", region: "hollywood", description: "Anthems and earworms", items: build("songs", SONGS) },
+  books: { id: "books", name: "Books", label: "Books", region: "general", description: "Classics and bestsellers", items: build("books", BOOKS) },
+  bollywood: { id: "bollywood", name: "Bollywood Movies", label: "Movies", region: "india", description: "Hindi cinema favourites", items: build("bollywood", BOLLYWOOD) },
+  quotes: { id: "quotes", name: "Famous Quotes", label: "Famous Quotes", region: "general", description: "Lines everyone knows", items: build("quotes", QUOTES) },
+  places: { id: "places", name: "Places & Landmarks", label: "Places & Landmarks", region: "general", description: "Wonders of the world", items: build("places", PLACES) },
+  hindisongs: { id: "hindisongs", name: "Bollywood Songs", label: "Songs", region: "india", description: "Hindi film hits, old and new", items: build("hindisongs", HINDI_SONGS) },
 };
 
 export const BUILT_IN_PACK_IDS = Object.keys(PACKS);
