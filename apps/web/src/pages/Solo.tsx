@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { Board } from "../components/Board";
 import { usePacks } from "../components/GameSettings";
+import { PackPicker } from "../components/PackPicker";
 import { toast } from "../components/Toasts";
 import { Button, Card, Logo, Spinner, Stamp } from "../components/ui";
 import { initAds, interstitial } from "../lib/ads";
@@ -160,11 +161,12 @@ export function SoloPage() {
     }
   };
 
-  const togglePack = (id: string) => {
-    const has = st.packs.includes(id);
-    if (has && st.packs.length === 1) return toast("Keep at least one pack", "bad");
-    setSt({ ...st, packs: has ? st.packs.filter((x) => x !== id) : [...st.packs, id] });
+  const setPacks = (next: string[]) => {
+    if (next.length === 0) return toast("Keep at least one pack", "bad");
+    if (next.length > CONFIG.MAX_PACKS) return toast(`Up to ${CONFIG.MAX_PACKS} packs`, "bad");
+    setSt({ ...st, packs: next });
   };
+
 
   // ---------- Setup / between runs ----------
   if (!st.run) {
@@ -196,21 +198,7 @@ export function SoloPage() {
         )}
         <Card>
           <h2 className="mb-2 font-display text-xl">Packs</h2>
-          <div className="flex flex-wrap gap-2">
-            {packs.map((p) => {
-              const on = st.packs.includes(p.id);
-              return (
-                <button
-                  key={p.id}
-                  onClick={() => togglePack(p.id)}
-                  aria-pressed={on}
-                  className={cn("rounded-xl px-3.5 py-2 text-sm font-extrabold transition", on ? "btn3d bg-set text-outline" : "border-[3px] border-outline bg-bg-deep text-muted hover:text-ink")}
-                >
-                  {p.name} <span className="opacity-60">{p.count}</span>
-                </button>
-              );
-            })}
-          </div>
+          <PackPicker packs={packs} selected={st.packs} onChange={setPacks} />
         </Card>
         <Button size="lg" className="w-full" onClick={start} disabled={busy}>
           {busy ? <Spinner /> : "Start playing"}

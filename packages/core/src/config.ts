@@ -67,3 +67,14 @@ export function clampTimers(t: Partial<Timers>, base: Timers): Timers {
   }
   return out;
 }
+
+/**
+ * Built-in packs are grouped by where their puzzles come from, then by kind (movies, songs...).
+ * Order here is the order shown in pickers.
+ */
+export const PACK_REGIONS = [
+  { id: "general", name: "General", emoji: "🌍" },
+  { id: "hollywood", name: "Hollywood & English", emoji: "🎬" },
+  { id: "india", name: "India", emoji: "🇮🇳" },
+] as const;
+export type PackRegionId = (typeof PACK_REGIONS)[number]["id"];

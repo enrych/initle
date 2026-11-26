@@ -85,7 +85,7 @@ async function roomStatus(env: Env, code: string): Promise<Response> {
 // ---------- Packs ----------
 
 function builtInSummaries(): PackSummary[] {
-  return Object.values(PACKS).map((p) => ({ id: p.id, name: p.name, description: p.description, count: p.items.length, custom: false }));
+  return Object.values(PACKS).map((p) => ({ id: p.id, name: p.name, label: p.label, region: p.region, description: p.description, count: p.items.length, custom: false }));
 }
 
 const LINE_MAX = 80;

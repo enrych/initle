@@ -2,6 +2,7 @@ import { CONFIG, SPEED_PRESETS, TIMER_LIMITS, type PackSummary, type Speed, type
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { cn } from "../lib/cn";
+import { PackPicker } from "./PackPicker";
 import { toast } from "./Toasts";
 import { Toggle, ROUND_META } from "./ui";
 
@@ -59,10 +60,8 @@ export function GameSettings({ view, send, canEdit, onAddPack }: { view: View; s
   const playedRounds = view.round ? view.round.index + 1 : 0;
   const minRounds = Math.max(CONFIG.ROUNDS_MIN, playedRounds);
 
-  const togglePack = (id: string) => {
-    const has = st.packs.includes(id);
-    if (has && st.packs.length === 1) return toast("Keep at least one pack", "bad");
-    const next = has ? st.packs.filter((p) => p !== id) : [...st.packs, id];
+  const setPacks = (next: string[]) => {
+    if (next.length === 0) return toast("Keep at least one pack", "bad");
     if (next.length > CONFIG.MAX_PACKS) return toast(`Up to ${CONFIG.MAX_PACKS} packs`, "bad");
     send({ type: "settings", packs: next });
   };
@@ -206,33 +205,13 @@ export function GameSettings({ view, send, canEdit, onAddPack }: { view: View; s
       </Section>
 
       <Section title="Packs" note={inGame ? "New packs are used for the rounds still to come." : undefined}>
-        <div className="flex flex-wrap gap-2">
-          {allPacks.map((p) => {
-            const on = st.packs.includes(p.id);
-            return (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => togglePack(p.id)}
-                aria-pressed={on}
-                className={cn(
-                  "rounded-xl px-3.5 py-2 text-sm font-extrabold transition",
-                  on ? "btn3d bg-set text-outline" : "border-[3px] border-outline bg-bg-deep text-muted hover:text-ink",
-                  !canEdit && !on && "hidden",
-                )}
-              >
-                {p.custom && "★ "}
-                {p.name}
-                {!p.custom && p.count > 0 && <span className="ml-1 opacity-60">{p.count}</span>}
-              </button>
-            );
-          })}
+        <PackPicker packs={allPacks} selected={st.packs} onChange={setPacks} readOnly={!canEdit}>
           {canEdit && onAddPack && (
             <button type="button" onClick={onAddPack} className="rounded-xl border-[3px] border-dashed border-cream/30 px-3.5 py-2 text-sm font-extrabold text-muted hover:text-ink">
               + Custom pack
             </button>
           )}
-        </div>
+        </PackPicker>
       </Section>
 
       <Toggle label="Family mode" description="Filter rude words in answers" checked={st.family} disabled={!canEdit} onChange={(family) => send({ type: "settings", family })} />

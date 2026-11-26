@@ -62,3 +62,12 @@ Playtesting showed Set it didn't fit: writing two phrases about the group under 
 ## Sign in with Google (2026-11-26)
 
 A third way to keep a player across devices, beside passkeys and recovery codes. Server-side OAuth redirect on the Worker (no Google script on the page, no CSP change). We request only `openid` and store only Google's opaque user ID, so the "no email, no real name" promise holds; players keep their Initle nickname and avatar. "Save with Google" attaches the account to the current player and refuses if that account already has one; "Sign in with Google" switches the device to it. The flow is tied to the device token and to a browser cookie, so a link started in one browser can't be finished in another. Off unless `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set (`wrangler secret put`). Trade-offs: Google blocks sign-in inside in-app browsers (we tell people to open Safari or Chrome); a guest profile is not merged when its device signs in to another player.
+
+## Packs grouped by region, then kind (2026-11-26)
+
+The flat list ("Movies", "Songs", "Bollywood") read as US-first: Hollywood was the unnamed default and India got one pack. Built-in packs now have a region (General, Hollywood & English, India) and a short label within it (Movies, Songs...), and pickers show them grouped, with "All" to take a whole region. Full names say where a pack is from ("Hollywood Movies", "Bollywood Movies"). Added a Bollywood Songs pack (`hindisongs`). Pack ids never change (the Daily order and saved Solo progress depend on them), so `movies` and `bollywood` keep their ids. Adding a region is one line in `PACK_REGIONS` plus its packs.
+
+## Installable app (PWA) instead of native apps (2026-11-26)
+
+No budget for separate Android, iOS and macOS apps, so the website installs as an app: a web manifest (icons, shortcuts to Daily, Solo and Friends), a small hand-written service worker (`apps/web/public/sw.js`) and an "Install the app" link on the home screen (the browser's install dialog on Android, Windows and Chrome; written steps on iPhone and Mac Safari, which have no dialog). The service worker caches only the page shell and built files; pages are fetched network-first so a deploy shows up at once, and game data is never cached. Trade-off: no app-store listing; playing still needs a connection.
+
