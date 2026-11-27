@@ -1,42 +1,16 @@
-import { AVATARS, ROOM_CODE_ALPHABET, ROOM_CODE_LENGTH, buildBoard } from "@initle/core/client";
+import { AVATARS, ROOM_CODE_ALPHABET, ROOM_CODE_LENGTH } from "@initle/core/client";
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { Board } from "../components/Board";
+import { AccountButton } from "../components/Account";
 import { HowToPlay } from "../components/HowToPlay";
 import { toast } from "../components/Toasts";
-import { Button, Card, Logo, Modal, Spinner } from "../components/ui";
+import { Button, Logo, Modal, Spinner } from "../components/ui";
 import { api } from "../lib/api";
 import { useInstall } from "../lib/pwa";
 import { getIdentity, saveIdentity, suggestName } from "../lib/identity";
 import { store } from "../lib/storage";
 import { streakStatus } from "../lib/streak";
-
-const DEMO = ["I Know What You Did Last Summer", "Piece of cake", "The Lord of the Rings: The Two Towers", "Breaking Bad"];
-
-function DemoBoard() {
-  const [i, setI] = useState(0);
-  const [stage, setStage] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => {
-      setStage((s) => {
-        if (s >= 5) {
-          setI((x) => (x + 1) % DEMO.length);
-          return 0;
-        }
-        return s + 1;
-      });
-    }, 1400);
-    return () => clearInterval(id);
-  }, []);
-  const text = DEMO[i]!;
-  const tiles = buildBoard(text, Math.min(stage, 4), new Set(), stage === 5);
-  return (
-    <div className="flex min-h-32 items-center" aria-hidden>
-      <Board tiles={tiles} type={(["crack", "fake", "crack", "fake"] as const)[i % 4]!} />
-    </div>
-  );
-}
 
 export function NameAvatarPicker({ name, avatar, onName, onAvatar, autoFocus }: { name: string; avatar: string; onName: (v: string) => void; onAvatar: (v: string) => void; autoFocus?: boolean }) {
   const [open, setOpen] = useState(false);
@@ -153,7 +127,10 @@ export function Home() {
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col gap-6 px-4 py-8 safe-bottom">
-      <header className="flex flex-col items-center gap-3 pt-4 text-center">
+      <header className="relative flex flex-col items-center gap-3 pt-4 text-center">
+        <div className="absolute -top-4 right-0">
+          <AccountButton />
+        </div>
         <Logo size="lg" />
         <p className="font-display text-2xl text-cream text-shadow-hard">Every letter counts!</p>
         <p className="max-w-xs font-bold text-muted">The party game of initials. Crack them, fake them, and fool your friends.</p>
@@ -230,23 +207,7 @@ export function Home() {
         </motion.div>
       </Link>
 
-      <Card className="py-5">
-        <DemoBoard />
-      </Card>
-      <ol className="grid grid-cols-3 gap-2 text-center text-xs font-extrabold" aria-label="How it works">
-        {[
-          ["1", "Make a room", "on your phone or TV"],
-          ["2", "Friends join", "with a 4-letter code"],
-          ["3", "Crack the initials", "or fake them"],
-        ].map(([n, title, sub]) => (
-          <li key={n} className="panel-sm flex flex-col items-center gap-1 px-2 py-3">
-            <span className="flex h-7 w-7 -rotate-6 items-center justify-center rounded-lg border-2 border-outline bg-set font-display text-sm text-outline">{n}</span>
-            <span className="text-sm leading-tight">{title}</span>
-            <span className="font-bold leading-tight text-muted">{sub}</span>
-          </li>
-        ))}
-      </ol>
-      <p className="-mt-3 text-center text-xs font-extrabold text-muted">2–10 players · free · no app or sign-up</p>
+      <p className="text-center text-xs font-extrabold text-muted">2–10 players · free · plays on any phone</p>
 
       <nav className="mt-auto flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm font-extrabold text-muted">
         <button onClick={() => setHowTo(true)} className="underline-offset-4 hover:text-ink hover:underline">

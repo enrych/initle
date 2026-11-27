@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "@initle/core": "workspace:*",
-    "@simplewebauthn/server": "^13.3.3",
     "partyserver": "^0.5.10"
   },
   "devDependencies": {

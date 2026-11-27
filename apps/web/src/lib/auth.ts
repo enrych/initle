@@ -1,9 +1,22 @@
-// Phase 2: keep your Initle player across devices with a passkey or a recovery code.
-import { browserSupportsWebAuthn, startAuthentication, startRegistration } from "@simplewebauthn/browser";
+// Signing in: keep your Initle player (name, avatar, friends, streaks, scores) on any device.
+// Providers: Google today. Adding one = a server module + an entry in PROVIDERS below.
+import { useEffect, useState } from "react";
 import { ApiError } from "./api";
-import { saveIdentity } from "./identity";
-import { authHeaders, type Me } from "./social";
+import { resetIdentity, saveIdentity } from "./identity";
+import { authHeaders, ensureProfile, type Me } from "./social";
 import { store } from "./storage";
+
+export type Provider = "google";
+export type AccountStatus = { providers: Provider[]; available: Provider[] };
+
+export const PROVIDERS: Record<Provider, { label: string }> = {
+  google: { label: "Google" },
+};
+
+const ACCOUNT_KEY = "initle:account";
+const RETURN_KEY = "initle:auth-return";
+const listeners = new Set<() => void>();
+const changed = () => listeners.forEach((fn) => fn());
 
 async function post<T>(path: string, body: unknown = {}): Promise<T> {
   let res: Response;
@@ -17,24 +30,35 @@ async function post<T>(path: string, body: unknown = {}): Promise<T> {
   return data;
 }
 
-export type AccountStatus = { passkeys: number; recoveryCode: boolean; google: boolean; googleEnabled: boolean };
-
-export const passkeysSupported = () => browserSupportsWebAuthn();
+/** Last known status, so the profile button can show it at once. */
+export const cachedAccount = () => store.get<AccountStatus | null>(ACCOUNT_KEY, null);
 
 export async function accountStatus(): Promise<AccountStatus> {
-  const res = await fetch("/api/account", { headers: authHeaders() });
-  if (!res.ok) throw new ApiError("Couldn't load your account.");
-  return res.json();
+  await ensureProfile();
+  const res = await fetch("/api/account", { headers: authHeaders() }).catch(() => null);
+  if (!res?.ok) throw new ApiError("Couldn't load your account.");
+  const status = (await res.json()) as AccountStatus;
+  store.set(ACCOUNT_KEY, status);
+  changed();
+  return status;
 }
 
-/** The user cancelled the browser's passkey prompt: not an error worth showing. */
+/** The account status, refreshed in the background; re-renders when it changes anywhere. */
+export function useAccount(): AccountStatus | null {
+  const [status, setStatus] = useState(cachedAccount);
+  useEffect(() => {
+    const fn = () => setStatus(cachedAccount());
+    listeners.add(fn);
+    accountStatus().catch(() => {});
+    return () => void listeners.delete(fn);
+  }, []);
+  return status;
+}
+
+/** The user dismissed a browser prompt: not an error worth showing. */
 export const isCancel = (e: unknown) => e instanceof Error && (e.name === "NotAllowedError" || e.name === "AbortError");
 
-export async function addPasskey() {
-  const { challengeId, options } = await post<{ challengeId: string; options: Parameters<typeof startRegistration>[0]["optionsJSON"] }>("/api/auth/passkey/register/options");
-  const response = await startRegistration({ optionsJSON: options });
-  await post("/api/auth/passkey/register/verify", { challengeId, response });
-}
+export const isSignedIn = (s: AccountStatus | null) => (s?.providers.length ?? 0) > 0;
 
 /** This device now plays as `me`: adopt their name and avatar so nothing overwrites them. */
 function adopt(me: Me): Me {
@@ -42,16 +66,6 @@ function adopt(me: Me): Me {
   store.set("initle:me", me);
   return me;
 }
-
-export async function signInWithPasskey(): Promise<Me> {
-  const { challengeId, options } = await post<{ challengeId: string; options: Parameters<typeof startAuthentication>[0]["optionsJSON"] }>("/api/auth/passkey/login/options");
-  const response = await startAuthentication({ optionsJSON: options });
-  return adopt(await post<Me>("/api/auth/passkey/login/verify", { challengeId, response }));
-}
-
-export const newRecoveryCode = () => post<{ code: string }>("/api/auth/recovery").then((r) => r.code);
-
-export const signInWithRecoveryCode = async (code: string) => adopt(await post<Me>("/api/auth/recovery/use", { code }));
 
 // ---------- Google ----------
 
@@ -61,27 +75,28 @@ const inAppBrowser = () => /FBAN|FBAV|FB_IAB|Instagram|TikTok|musical_ly|Line\/|
 const GOOGLE_ERRORS: Record<string, string> = {
   denied: "Google sign-in was cancelled.",
   expired: "That took too long. Try again.",
-  taken: "That Google account already has an Initle player. Use \"Sign in\" below to switch to it.",
-  unknown: "No Initle player is saved with that Google account yet.",
   failed: "Couldn't sign in with Google. Try again.",
 };
 
 /**
- * Leave for Google. "save" attaches the Google account to this device's player;
- * "signin" switches this device to the player already saved with it.
+ * Leave for Google. A Google account used before switches this device to that player; a new one is saved
+ * to the player this device has now. Comes back to the current page.
  */
-export async function startGoogle(mode: "save" | "signin"): Promise<void> {
+export async function startGoogle(): Promise<void> {
   if (inAppBrowser()) throw new ApiError("Open Initle in Safari or Chrome to use Google.");
-  const { url } = await post<{ url: string }>("/api/auth/google/start", { mode });
+  await ensureProfile();
+  sessionStorage.setItem(RETURN_KEY, location.pathname + location.search);
+  const { url } = await post<{ url: string }>("/api/auth/google/start");
   location.assign(url);
   await new Promise(() => {}); // the page is navigating away: keep the button busy
 }
 
 /**
- * Back from Google? Reads (and removes) the `?google=` result. On success this device's player is
- * fetched and adopted, so call this before anything that sends the local name to the server.
+ * Back from Google? Reads (and removes) the `?google=` result. On success this device's player is fetched
+ * and adopted, so call this before anything that sends the local name to the server.
+ * `returnTo` is the page sign-in started from.
  */
-export async function finishGoogle(): Promise<{ ok: true; me: Me } | { ok: false; message: string } | null> {
+export async function finishGoogle(): Promise<{ ok: true; me: Me; returnTo: string | null } | { ok: false; message: string } | null> {
   const url = new URL(location.href);
   const result = url.searchParams.get("google");
   if (!result) return null;
@@ -91,6 +106,7 @@ export async function finishGoogle(): Promise<{ ok: true; me: Me } | { ok: false
   };
   if (result !== "ok") {
     strip();
+    sessionStorage.removeItem(RETURN_KEY);
     return { ok: false, message: GOOGLE_ERRORS[result] ?? GOOGLE_ERRORS.failed! };
   }
   // The server has already switched this device. Until we have the new player, nothing may send this
@@ -99,5 +115,19 @@ export async function finishGoogle(): Promise<{ ok: true; me: Me } | { ok: false
   if (!res?.ok) throw new ApiError("Signed in with Google, but couldn't load your profile. Check your connection and try again.");
   const me = adopt((await res.json()) as Me);
   strip();
-  return { ok: true, me };
+  const returnTo = sessionStorage.getItem(RETURN_KEY);
+  sessionStorage.removeItem(RETURN_KEY);
+  accountStatus().catch(() => {});
+  return { ok: true, me, returnTo: returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : null };
+}
+
+// ---------- Sign out ----------
+
+/** This device forgets the player and starts again as a new guest. The player stays saved. */
+export async function signOut(): Promise<void> {
+  await post("/api/auth/signout");
+  resetIdentity();
+  store.remove("initle:me");
+  store.remove(ACCOUNT_KEY);
+  changed();
 }

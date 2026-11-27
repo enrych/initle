@@ -1,14 +1,13 @@
-// Sign in with Google: a third way (beside passkeys and recovery codes) to keep a player across devices.
+// Sign in with Google: the first sign-in provider (see auth.ts for what every provider shares).
 // We ask Google only for `openid` and store only its opaque user id (`sub`): no email, name or photo.
-import { linkTokenHash, relyingParty, saveChallenge, takeChallenge } from "./auth";
+import { pageOrigin, saveChallenge, signInWith, takeChallenge } from "./auth";
 import { ensureSchema } from "./db";
 import { sha256 } from "./social";
 
 type GoogleEnv = Pick<Env, "DB" | "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET" | "GOOGLE_AUTH_URL" | "GOOGLE_TOKEN_URL">;
-export type GoogleMode = "save" | "signin";
 /** What the app is told when the browser comes back (`/friends?google=...`). */
-type Result = "ok" | "denied" | "expired" | "taken" | "unknown" | "failed";
-type State = { h: string; n: string; o: string; m: GoogleMode };
+type Result = "ok" | "denied" | "expired" | "failed";
+type State = { h: string; n: string; o: string };
 
 const PRODUCTION = "https://initle.enry.ch";
 const ISSUERS = ["https://accounts.google.com", "accounts.google.com"];
@@ -50,12 +49,12 @@ const redirectUri = (origin: string) => `${origin}/api/auth/google/callback`;
  * Begin a sign-in for this device. The one-time state remembers which device asked (by token hash)
  * and is tied to this browser by a cookie, so a link started on one browser can't be finished on another.
  */
-export async function googleStart(env: GoogleEnv, req: Request, token: string, mode: GoogleMode): Promise<{ url: string; cookie: string }> {
+export async function googleStart(env: GoogleEnv, req: Request, token: string): Promise<{ url: string; cookie: string }> {
   const cfg = config(env)!;
   await ensureSchema(env.DB);
-  const origin = siteOrigin(relyingParty(req).origin);
+  const origin = siteOrigin(pageOrigin(req));
   const nonce = [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, "0")).join("");
-  const state: State = { h: await sha256(token), n: await sha256(nonce), o: origin, m: mode };
+  const state: State = { h: await sha256(token), n: await sha256(nonce), o: origin };
   const id = await saveChallenge(env.DB, JSON.stringify(state), null);
   const url = new URL(cfg.authUrl);
   url.search = new URLSearchParams({ client_id: cfg.clientId, redirect_uri: redirectUri(origin), response_type: "code", scope: "openid", state: id, prompt: "select_account" }).toString();
@@ -95,24 +94,7 @@ async function finish(env: GoogleEnv, req: Request, url: URL, state: State | nul
   const sub = await googleUserId(cfg, code, state.o);
   if (!sub) return "failed";
 
-  const db = env.DB;
-  const [ownerRow, mineRow] = await db.batch([
-    db.prepare("SELECT player_id FROM google_accounts WHERE sub = ?").bind(sub),
-    db.prepare("SELECT player_id FROM player_tokens WHERE token_hash = ?").bind(state.h),
-  ]);
-  const owner = (ownerRow!.results?.[0] as { player_id: string } | undefined)?.player_id;
-  const mine = (mineRow!.results?.[0] as { player_id: string } | undefined)?.player_id;
-
-  if (state.m === "signin") {
-    if (!owner) return "unknown";
-    await linkTokenHash(db, state.h, owner);
-    return "ok";
-  }
-  if (owner) return owner === mine ? "ok" : "taken";
-  if (!mine) return "failed";
-  await db.prepare("INSERT OR IGNORE INTO google_accounts (sub, player_id, created_at) VALUES (?, ?, ?)").bind(sub, mine, Date.now()).run();
-  const saved = await db.prepare("SELECT player_id FROM google_accounts WHERE sub = ?").bind(sub).first<{ player_id: string }>();
-  return saved?.player_id === mine ? "ok" : "taken";
+  return signInWith(env.DB, "google", sub, state.h);
 }
 
 /** Google sent the browser back. Always ends in a redirect to the Friends page with the outcome. */
@@ -124,12 +106,12 @@ export async function googleCallback(env: GoogleEnv, req: Request, url: URL): Pr
     const row = await takeChallenge(env.DB, id);
     try {
       const parsed = row ? (JSON.parse(row.challenge) as Partial<State>) : null;
-      if (parsed && typeof parsed.h === "string" && typeof parsed.n === "string" && typeof parsed.o === "string" && (parsed.m === "save" || parsed.m === "signin")) state = parsed as State;
+      if (parsed && typeof parsed.h === "string" && typeof parsed.n === "string" && typeof parsed.o === "string") state = parsed as State;
     } catch {
       // A WebAuthn challenge id, not one of ours.
     }
   }
-  const origin = siteOrigin(state?.o ?? relyingParty(req).origin);
+  const origin = siteOrigin(state?.o ?? pageOrigin(req));
   let result: Result;
   try {
     result = await finish(env, req, url, state);
