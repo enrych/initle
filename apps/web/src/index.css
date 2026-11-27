@@ -77,6 +77,17 @@ button:disabled {
   padding-bottom: max(1rem, env(safe-area-inset-bottom));
 }
 
+/*
+ * Installed on iPhone, the app draws under the status bar and the notch (status bar style
+ * black-translucent, viewport-fit=cover). Push the page below them. In a normal browser tab the inset is 0.
+ */
+body {
+  padding-top: env(safe-area-inset-top);
+}
+.min-h-dvh {
+  min-height: calc(100dvh - env(safe-area-inset-top));
+}
+
 @layer components {
   /* A raised game panel */
   .panel {

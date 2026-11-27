@@ -50,6 +50,15 @@ try {
   await a.goto(`${BASE}/`);
   await a.getByRole("button", { name: "Sign in" }).waitFor({ timeout: 15000 });
   await shot(a, "0-home");
+  await a.waitForTimeout(800); // logo drop-in animation
+  // On Home, sign-in sits under the name field, clear of the logo.
+  const btn = await a.getByRole("button", { name: "Sign in" }).boundingBox();
+  const logo = await a.getByRole("img", { name: "Initle" }).first().boundingBox();
+  const nameField = await a.getByRole("textbox").first().boundingBox();
+  if (!btn || !logo || !nameField) fail("home is missing the sign-in button, logo or name field");
+  if (btn.y < logo.y + logo.height) fail("sign-in button is not below the logo");
+  if (btn.y < nameField.y + nameField.height) fail("sign-in button is not under the name field");
+  await a.getByText("Guest · your scores stay on this device").waitFor();
   if ((await a.getByText("How it works").count()) + (await a.getByRole("list", { name: "How it works" }).count()) > 0) fail("home still shows the how-it-works tiles");
   await a.goto(`${BASE}/daily`);
   await a.getByRole("button", { name: "Sign in" }).click();
@@ -66,6 +75,10 @@ try {
   await a.getByText(/Signed in with Google/).waitFor();
   await shot(a, "2-signed-in");
   await a.keyboard.press("Escape");
+  await a.goto(`${BASE}/`);
+  await a.getByText("✓ Saved with Google").waitFor({ timeout: 15000 });
+  await a.waitForTimeout(800);
+  await shot(a, "2b-home-signed-in");
 
   // Device B is a different guest; continuing with the same Google account switches it to A's player.
   const b = await device(browser);

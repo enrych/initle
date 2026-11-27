@@ -128,3 +128,31 @@ export function AccountButton({ className, compact }: { className?: string; comp
     </>
   );
 }
+
+/**
+ * Home's version: a slim line under the name and avatar (which already are "you"), so the big logo stays clean.
+ * Guests are told their scores live on this device; once signed in it confirms how.
+ */
+export function AccountLine() {
+  const [open, setOpen] = useState(false);
+  const account = useAccount();
+  if (!account) return null;
+  const signedIn = isSignedIn(account);
+  if (!signedIn && account.available.length === 0) return null;
+  return (
+    <div className="flex items-center justify-between gap-3 px-1">
+      <p className="text-sm font-bold text-muted">
+        {signedIn ? `✓ Saved with ${account.providers.map((p) => PROVIDERS[p].label).join(" and ")}` : "Guest · your scores stay on this device"}
+      </p>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label={signedIn ? "Your account" : "Sign in"}
+        className="shrink-0 whitespace-nowrap rounded-xl border-[3px] border-outline bg-surface-2 px-3 py-1.5 text-sm font-extrabold transition hover:-translate-y-0.5"
+      >
+        {signedIn ? "Account" : "Sign in"}
+      </button>
+      <AccountSheet open={open} onClose={() => setOpen(false)} />
+    </div>
+  );
+}
