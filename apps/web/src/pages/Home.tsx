@@ -2,7 +2,7 @@ import { AVATARS, ROOM_CODE_ALPHABET, ROOM_CODE_LENGTH } from "@initle/core/clie
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { AccountButton } from "../components/Account";
+import { AccountLine } from "../components/Account";
 import { HowToPlay } from "../components/HowToPlay";
 import { toast } from "../components/Toasts";
 import { Button, Logo, Modal, Spinner } from "../components/ui";
@@ -127,10 +127,7 @@ export function Home() {
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col gap-6 px-4 py-8 safe-bottom">
-      <div className="-mb-3 -mt-4 flex justify-end">
-        <AccountButton />
-      </div>
-      <header className="flex flex-col items-center gap-3 text-center">
+      <header className="flex flex-col items-center gap-3 pt-4 text-center">
         <Logo size="lg" />
         <p className="font-display text-2xl text-cream text-shadow-hard">Every letter counts!</p>
         <p className="max-w-xs font-bold text-muted">The party game of initials. Crack them, fake them, and fool your friends.</p>
@@ -141,6 +138,7 @@ export function Home() {
 
       <section className="space-y-3">
         <NameAvatarPicker name={name} avatar={avatar} onName={setName} onAvatar={setAvatar} />
+        <AccountLine />
         <Button size="lg" className="w-full" onClick={create} disabled={busy !== null}>
           {busy === "create" ? <Spinner /> : "Create a room"}
         </Button>
