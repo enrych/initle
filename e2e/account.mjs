@@ -50,6 +50,11 @@ try {
   await a.goto(`${BASE}/`);
   await a.getByRole("button", { name: "Sign in" }).waitFor({ timeout: 15000 });
   await shot(a, "0-home");
+  await a.waitForTimeout(800); // logo drop-in animation
+  const btn = await a.getByRole("button", { name: "Sign in" }).boundingBox();
+  const logo = await a.getByRole("img", { name: "Initle" }).first().boundingBox();
+  if (!btn || !logo) fail("home has no sign-in button or logo");
+  if (btn.y + btn.height > logo.y && btn.x < logo.x + logo.width) fail(`sign-in button overlaps the logo (button ${JSON.stringify(btn)}, logo ${JSON.stringify(logo)})`);
   if ((await a.getByText("How it works").count()) + (await a.getByRole("list", { name: "How it works" }).count()) > 0) fail("home still shows the how-it-works tiles");
   await a.goto(`${BASE}/daily`);
   await a.getByRole("button", { name: "Sign in" }).click();

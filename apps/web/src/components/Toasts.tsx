@@ -30,7 +30,7 @@ export function Toaster() {
     return () => void subs.delete(setList);
   }, []);
   return (
-    <div className="pointer-events-none fixed inset-x-0 top-16 z-[60] flex flex-col items-center gap-2 px-4" aria-live="polite">
+    <div className="pointer-events-none fixed inset-x-0 top-[calc(4rem+env(safe-area-inset-top))] z-[60] flex flex-col items-center gap-2 px-4" aria-live="polite">
       <AnimatePresence>
         {list.map((t) => (
           <motion.div

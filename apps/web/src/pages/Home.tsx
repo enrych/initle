@@ -127,10 +127,10 @@ export function Home() {
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col gap-6 px-4 py-8 safe-bottom">
-      <header className="relative flex flex-col items-center gap-3 pt-4 text-center">
-        <div className="absolute -top-4 right-0">
-          <AccountButton />
-        </div>
+      <div className="-mb-3 -mt-4 flex justify-end">
+        <AccountButton />
+      </div>
+      <header className="flex flex-col items-center gap-3 text-center">
         <Logo size="lg" />
         <p className="font-display text-2xl text-cream text-shadow-hard">Every letter counts!</p>
         <p className="max-w-xs font-bold text-muted">The party game of initials. Crack them, fake them, and fool your friends.</p>
