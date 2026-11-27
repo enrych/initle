@@ -26,6 +26,13 @@ export function saveIdentity(patch: Partial<Omit<Identity, "token">>): Identity 
   return next;
 }
 
+/** A brand-new guest on this device: new secret token, new fun name and avatar. */
+export function resetIdentity(): Identity {
+  const id: Identity = { token: randomToken(), name: suggestName(), avatar: AVATARS[Math.floor(Math.random() * AVATARS.length)]! };
+  store.set(KEY, id);
+  return id;
+}
+
 const ADJ = ["Sneaky", "Swift", "Lucky", "Clever", "Brave", "Fuzzy", "Witty", "Sly", "Jolly", "Cosmic", "Spicy", "Sunny", "Quiet", "Wild", "Bold"];
 const NOUN = ["Otter", "Panda", "Falcon", "Mango", "Tiger", "Koala", "Comet", "Pickle", "Raven", "Lemur", "Badger", "Walrus", "Yak", "Gecko", "Moose"];
 

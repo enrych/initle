@@ -71,3 +71,7 @@ The flat list ("Movies", "Songs", "Bollywood") read as US-first: Hollywood was t
 
 No budget for separate Android, iOS and macOS apps, so the website installs as an app: a web manifest (icons, shortcuts to Daily, Solo and Friends), a small hand-written service worker (`apps/web/public/sw.js`) and an "Install the app" link on the home screen (the browser's install dialog on Android, Windows and Chrome; written steps on iPhone and Mac Safari, which have no dialog). The service worker caches only the page shell and built files; pages are fetched network-first so a deploy shows up at once, and game data is never cached. Trade-off: no app-store listing; playing still needs a connection.
 
+## One account sheet; Google replaces passkeys and recovery codes (2026-11-27)
+
+Signing in moved out of the Friends page into an avatar button on every main screen, opening one account sheet. Passkeys and recovery codes are gone (no one used passkeys; one recovery code existed); their tables stay, unused, and still protect old players from being deleted. Sign-in providers share one `identities` table and one rule: an account seen before switches the device to its player, a new one is saved to the current player. Google is the only provider for now. Email login was postponed: sending codes to any address needs Workers Paid ($5/month) on Cloudflare or a third-party sender. The home page lost the animated demo board and the three "how it works" tiles.
+

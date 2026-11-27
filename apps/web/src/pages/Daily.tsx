@@ -15,6 +15,8 @@ import { confetti } from "../lib/confetti";
 import { store } from "../lib/storage";
 import { cachedMe, ensureProfile, friendUrl, social, type FriendRow } from "../lib/social";
 import { FriendsToday } from "./Friends";
+import { AccountButton, AccountSheet } from "../components/Account";
+import { isSignedIn, useAccount } from "../lib/auth";
 
 type Attempt = { guess: string; newlyLocked: number };
 type DayState = {
@@ -159,10 +161,11 @@ export function DailyPage() {
                 🔥 {streak.streak}
               </span>
             )}
-            <span className="font-display text-2xl text-ink text-shadow-hard">Daily #{puzzle.day}</span>
+            <span className="whitespace-nowrap font-display text-2xl text-ink text-shadow-hard">Daily #{puzzle.day}</span>
           </div>
           {puzzle.date}
         </div>
+        <AccountButton compact className="ml-2" />
       </header>
 
       <Card className="flex flex-col items-center gap-4 py-7">
@@ -266,6 +269,8 @@ function DailyResult({ puzzle, st, record, countdown }: { puzzle: DailyPuzzle; s
     if (res === "copied") toast("Result copied", "good");
   };
   const hasFriends = (friends?.length ?? 0) > 1;
+  const account = useAccount();
+  const [saveOpen, setSaveOpen] = useState(false);
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
       <div className="text-center">
@@ -294,6 +299,19 @@ function DailyResult({ puzzle, st, record, countdown }: { puzzle: DailyPuzzle; s
           ))}
         </div>
       )}
+
+      {isToday && account && !isSignedIn(account) && account.available.length > 0 && (
+        <button type="button" onClick={() => setSaveOpen(true)} className="panel-sm flex w-full items-center justify-between gap-3 bg-surface-2 px-4 py-3 text-left transition hover:-translate-y-0.5">
+          <span>
+            <span className="block font-display text-lg">💾 Save your streak</span>
+            <span className="block text-sm font-bold text-muted">Sign in so your scores and streak follow you to any device.</span>
+          </span>
+          <span className="text-2xl" aria-hidden>
+            →
+          </span>
+        </button>
+      )}
+      <AccountSheet open={saveOpen} onClose={() => setSaveOpen(false)} />
 
       {isToday && friends && (
         <Card className="space-y-3">

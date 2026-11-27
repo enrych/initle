@@ -2,14 +2,16 @@ import type { Item } from "@initle/core";
 import initSql from "../migrations/0001_init.sql";
 import socialSql from "../migrations/0002_social.sql";
 import googleSql from "../migrations/0003_google.sql";
+import identitiesSql from "../migrations/0004_identities.sql";
 
 /**
  * The Worker creates its own tables (idempotent CREATE ... IF NOT EXISTS), once per isolate.
  * No separate migration step is needed in any deploy pipeline, including Cloudflare Workers Builds.
  */
-const STATEMENTS = `${initSql};\n${socialSql};\n${googleSql}`
+const STATEMENTS = `${initSql};\n${socialSql};\n${googleSql};\n${identitiesSql}`
+  .replace(/--.*$/gm, "") // comments first, so a ";" inside one can't split a statement
   .split(";")
-  .map((s) => s.replace(/--.*$/gm, "").trim())
+  .map((s) => s.trim())
   .filter(Boolean);
 let schemaReady: Promise<void> | null = null;
 

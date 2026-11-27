@@ -9,7 +9,7 @@ export function PrivacyPage() {
       </Link>
       <Card className="space-y-4 text-left leading-relaxed">
         <h1 className="font-display text-3xl font-bold">Privacy</h1>
-        <p className="text-sm font-bold text-muted">Last updated: 26 November 2026</p>
+        <p className="text-sm font-bold text-muted">Last updated: 27 November 2026</p>
 
         <h2 className="font-display text-xl">The short version</h2>
         <p>Initle needs no account and never stores your email, phone number or real name. You pick a nickname and play. Signing in is optional.</p>
@@ -30,8 +30,7 @@ export function PrivacyPage() {
             Daily results and streaks. Friends see your results. Your nickname and score also appear on global leaderboards unless you turn that off on the Friends page.
           </li>
           <li>
-            <b>Signing in on other devices (optional):</b> if you save a passkey, we store its public key (never your fingerprint or face, which stay on your device). If you create a recovery
-            code, we store only a hash of it. If you sign in with Google, we store only the ID number Google gives us for your account: not your email, name or photo.
+            <b>Signing in (optional):</b> if you sign in with Google, we store only the ID number Google gives us for your account: not your email, name or photo. Signing out of a device keeps your saved player.
           </li>
           <li>
             <b>Game stats:</b> anonymous totals such as how many people solved today's Daily, and summaries of finished games without names.

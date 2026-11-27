@@ -5,6 +5,7 @@ import { Link } from "react-router";
 import { Board } from "../components/Board";
 import { usePacks } from "../components/GameSettings";
 import { PackPicker } from "../components/PackPicker";
+import { AccountButton } from "../components/Account";
 import { toast } from "../components/Toasts";
 import { Button, Card, Logo, Spinner, Stamp } from "../components/ui";
 import { initAds, interstitial } from "../lib/ads";
@@ -176,7 +177,10 @@ export function SoloPage() {
           <Link to="/" aria-label="Home">
             <Logo size="sm" />
           </Link>
-          <span className="font-display text-2xl text-shadow-hard">Solo</span>
+          <div className="flex items-center gap-2">
+            <span className="font-display text-2xl text-shadow-hard">Solo</span>
+            <AccountButton compact />
+          </div>
         </header>
         <div className="text-center">
           <h1 className="text-4xl text-shadow-hard">Endless solo</h1>

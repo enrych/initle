@@ -45,10 +45,11 @@ async function device(name) {
 }
 const me = async (d) => (await (await fetch(`${BASE}/api/me`, { headers: d.headers })).json()).id;
 const account = async (d) => (await fetch(`${BASE}/api/account`, { headers: d.headers })).json();
+const signedIn = async (d) => (await account(d)).providers.includes("google");
 
-async function start(d, mode) {
-  const res = await fetch(`${BASE}/api/auth/google/start`, { method: "POST", headers: d.headers, body: JSON.stringify({ mode }) });
-  if (!res.ok) fail(`start (${mode}) returned ${res.status}`);
+async function start(d) {
+  const res = await fetch(`${BASE}/api/auth/google/start`, { method: "POST", headers: d.headers, body: "{}" });
+  if (!res.ok) fail(`start returned ${res.status}`);
   const url = new URL((await res.json()).url);
   const cookie = (res.headers.getSetCookie()[0] ?? "").split(";")[0];
   if (!cookie.startsWith("initle_g=")) fail("start didn't set the initle_g cookie");
@@ -62,24 +63,26 @@ async function callback(params, cookie) {
   eq(to.pathname, "/friends", "callback redirect path");
   return to.searchParams.get("google");
 }
-const flow = async (d, mode, sub) => {
-  const s = await start(d, mode);
+const flow = async (d, sub) => {
+  const s = await start(d);
   return callback({ code: sub, state: s.state }, s.cookie);
 };
+const signOut = async (d) => fetch(`${BASE}/api/auth/signout`, { method: "POST", headers: d.headers, body: "{}" });
 
 try {
-  // Device A saves its player to Google account ALICE.
+  // Device A continues with Google account ALICE: a new account is saved to A's player.
   const a = await device("Tester A");
-  eq((await account(a)).googleEnabled, true, "googleEnabled");
-  eq((await account(a)).google, false, "google before saving");
-  const s = await start(a, "save");
+  eq(JSON.stringify((await account(a)).available), '["google"]', "available providers");
+  eq(await signedIn(a), false, "signed in before Google");
+  eq((await signOut(a)).status, 400, "signing out a player nothing can sign back into");
+  const s = await start(a);
   eq(s.url.origin + s.url.pathname, "http://localhost:8799/auth", "auth URL");
   eq(s.url.searchParams.get("client_id"), CLIENT_ID, "client_id");
   eq(s.url.searchParams.get("scope"), "openid", "scope");
   eq(s.url.searchParams.get("redirect_uri"), `http://${host}/api/auth/google/callback`, "redirect_uri");
 
   // A page claiming another host (anyone can register initle.<name>.workers.dev) never gets the browser sent there.
-  const evil = await fetch(`${BASE}/api/auth/google/start`, { method: "POST", headers: { ...a.headers, "x-initle-host": "initle.evil.workers.dev", "x-initle-proto": "https:" }, body: JSON.stringify({ mode: "save" }) });
+  const evil = await fetch(`${BASE}/api/auth/google/start`, { method: "POST", headers: { ...a.headers, "x-initle-host": "initle.evil.workers.dev", "x-initle-proto": "https:" }, body: "{}" });
   const evilUrl = new URL((await evil.json()).url);
   eq(evilUrl.searchParams.get("redirect_uri"), "https://initle.enry.ch/api/auth/google/callback", "redirect_uri for an unknown host");
   const back = await fetch(`${BASE}/api/auth/google/callback?${new URLSearchParams({ state: evilUrl.searchParams.get("state"), code: "x" })}`, { redirect: "manual" });
@@ -90,36 +93,41 @@ try {
 
   // Someone else's browser (no cookie) opening the link must not link anything, and burns the state.
   eq(await callback({ code: ALICE, state: s.state }, null), "expired", "callback without cookie");
-  eq((await account(a)).google, false, "google after a cookie-less callback");
+  eq(await signedIn(a), false, "signed in after a cookie-less callback");
   eq(await callback({ code: ALICE, state: s.state }, s.cookie), "expired", "reused state");
 
-  eq(await flow(a, "save", ALICE), "ok", "save");
-  eq((await account(a)).google, true, "google after saving");
-  eq(await flow(a, "save", ALICE), "ok", "saving the same account twice");
+  eq(await flow(a, ALICE), "ok", "continue with a new account");
+  eq(await signedIn(a), true, "signed in after Google");
+  eq(await me(a), a.id, "device A keeps its player");
+  eq(await flow(a, ALICE), "ok", "continue with the same account again");
 
-  // Device B signs in as alice and becomes player A.
+  // Device B continues with ALICE: a known account switches B to A's player; B's unsaved guest is dropped.
   const b = await device("Tester B");
-  eq(await flow(b, "signin", `nobody-${RUN}`), "unknown", "sign in with an unsaved account");
-  eq(await me(b), b.id, "device B after a failed sign-in");
-  eq(await flow(b, "save", ALICE), "taken", "save with an account that has another player");
-  eq(await me(b), b.id, "device B after a refused save");
-  eq((await account(b)).google, false, "device B google after a refused save");
-  eq(await flow(b, "signin", ALICE), "ok", "sign in");
+  eq(await flow(b, ALICE), "ok", "continue on another device");
   eq(await me(b), a.id, "device B after signing in");
-  const gone = await fetch(`${BASE}/api/players/${b.id}`);
-  eq(gone.status, 404, "device B's unsaved guest profile after signing in");
+  eq((await fetch(`${BASE}/api/players/${b.id}`)).status, 404, "device B's unsaved guest profile after signing in");
+
+  // Sign out: the device forgets the player, the player stays and can be signed back into.
+  eq((await signOut(b)).status, 200, "sign out");
+  eq((await fetch(`${BASE}/api/me`, { headers: b.headers })).status, 401, "device B after signing out");
+  eq((await fetch(`${BASE}/api/players/${a.id}`)).status, 200, "player A after device B signs out");
+  eq(await me(a), a.id, "device A after device B signs out");
+  const b2 = await device("Tester B2");
+  eq(await flow(b2, ALICE), "ok", "sign back in on a fresh guest");
+  eq(await me(b2), a.id, "fresh guest after signing back in");
 
   // Failures at Google.
   const c = await device("Tester C");
-  const cancelled = await start(c, "save");
+  const cancelled = await start(c);
   eq(await callback({ error: "access_denied", state: cancelled.state }, cancelled.cookie), "denied", "cancelled at Google");
-  eq(await flow(c, "save", "bad"), "failed", "rejected code");
-  eq(await flow(c, "save", "wrong-aud"), "failed", "ID token for another app");
+  eq(await flow(c, "bad"), "failed", "rejected code");
+  eq(await flow(c, "wrong-aud"), "failed", "ID token for another app");
   eq(await callback({ code: CAROL, state: "0".repeat(32) }, "initle_g=abc"), "expired", "unknown state");
-  eq((await account(c)).google, false, "device C google after failures");
-  // A saved player isn't dropped when its device signs in elsewhere.
-  eq(await flow(c, "save", CAROL), "ok", "save carol");
-  eq(await flow(c, "signin", ALICE), "ok", "carol's device signs in as alice");
+  eq(await signedIn(c), false, "device C after failures");
+  // A saved player isn't dropped when its device switches to another.
+  eq(await flow(c, CAROL), "ok", "save carol");
+  eq(await flow(c, ALICE), "ok", "carol's device switches to alice");
+  eq(await me(c), a.id, "device C after switching");
   eq((await fetch(`${BASE}/api/players/${c.id}`)).status, 200, "carol's saved player still exists");
 
   console.log("GOOGLE E2E OK");

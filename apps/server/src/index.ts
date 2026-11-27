@@ -21,7 +21,7 @@ import {
 } from "@initle/core";
 import { getServerByName, routePartykitRequest } from "partyserver";
 import { getDailyStats, insertCustomPack, loadCustomPacks, recordDaily, reportPack } from "./db";
-import { accountStatus, newRecoveryCode, passkeyLoginOptions, passkeyLoginVerify, passkeyRegisterOptions, passkeyRegisterVerify, useRecoveryCode } from "./auth";
+import { linkedProviders, signOut } from "./auth";
 import { googleCallback, googleEnabled, googleStart } from "./google";
 import { FRIEND_CODE_RE, addFriend, findPlayer, friendsBoard, globalBoard, liveStreak, publicProfile, readToken, removeFriend, trackDailyGuess, upsertPlayer, type Player } from "./social";
 
@@ -345,9 +345,6 @@ async function social(env: Env, req: Request, url: URL): Promise<Response | null
 
 async function auth(env: Env, req: Request, url: URL): Promise<Response> {
   const { pathname } = url;
-  const body = req.method === "POST" ? ((await readJson(req)) as Record<string, unknown> | null) : null;
-  const challengeId = typeof body?.challengeId === "string" ? body.challengeId : "";
-
   if (pathname.startsWith("/api/auth/google/")) {
     if (!googleEnabled(env)) return error(404, "Not found");
     // Google sends the browser back here: a plain page load, so no token header.
@@ -357,44 +354,23 @@ async function auth(env: Env, req: Request, url: URL): Promise<Response> {
       if (blocked) return blocked;
       const token = readToken(req);
       if (!token) return error(401, "Missing player token.");
-      const { url: to, cookie } = await googleStart(env, req, token, body?.mode === "signin" ? "signin" : "save");
+      const { url: to, cookie } = await googleStart(env, req, token);
       return new Response(JSON.stringify({ url: to }), { headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "set-cookie": cookie } });
     }
     return error(404, "Not found");
   }
 
-  // Signing in from a new device: needs only this device's token.
-  if (pathname === "/api/auth/passkey/login/options" || pathname === "/api/auth/passkey/login/verify" || pathname === "/api/auth/recovery/use") {
-    if (req.method !== "POST") return error(405, "Use POST.");
-    const blocked = await limited(env.CREATE_LIMITER, req, "auth");
-    if (blocked) return blocked;
-    const token = readToken(req);
-    if (!token) return error(401, "Missing player token.");
-    const signedIn = async () => {
-      const me = await findPlayer(env.DB, token);
-      return me ? json(meJson(me)) : error(500, "Signed in, but couldn't load your profile.");
-    };
-    if (pathname === "/api/auth/passkey/login/options") return json(await passkeyLoginOptions(env.DB, req));
-    if (pathname === "/api/auth/passkey/login/verify") {
-      if (!challengeId || !body?.response) return error(400, "Bad request.");
-      const res = await passkeyLoginVerify(env.DB, req, token, challengeId, body.response as never);
-      return res.error ? error(400, res.error) : signedIn();
-    }
-    const res = await useRecoveryCode(env.DB, token, typeof body?.code === "string" ? body.code : "");
-    return res.error ? error(400, res.error) : signedIn();
-  }
-
-  // Everything else needs a player.
   const me = await requirePlayer(env, req);
   if (me instanceof Response) return me;
-  if (pathname === "/api/account" && req.method === "GET") return json({ ...(await accountStatus(env.DB, me)), googleEnabled: googleEnabled(env) });
-  if (pathname === "/api/auth/passkey/register/options" && req.method === "POST") return json(await passkeyRegisterOptions(env.DB, req, me));
-  if (pathname === "/api/auth/passkey/register/verify" && req.method === "POST") {
-    if (!challengeId || !body?.response) return error(400, "Bad request.");
-    const res = await passkeyRegisterVerify(env.DB, req, me, challengeId, body.response as never);
-    return res.error ? error(400, res.error) : json(res);
+  if (pathname === "/api/account" && req.method === "GET") {
+    return json({ providers: await linkedProviders(env.DB, me), available: googleEnabled(env) ? ["google"] : [] });
   }
-  if (pathname === "/api/auth/recovery" && req.method === "POST") return json({ code: await newRecoveryCode(env.DB, me) });
+  if (pathname === "/api/auth/signout" && req.method === "POST") {
+    // Signing out of a player nothing can sign back into would lose it for good.
+    if ((await linkedProviders(env.DB, me)).length === 0) return error(400, "Save your progress first, or you'd lose this player.");
+    await signOut(env.DB, readToken(req)!);
+    return json({ ok: true });
+  }
   return error(404, "Not found");
 }
 
